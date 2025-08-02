@@ -26,9 +26,9 @@ class UserRole(enum.Enum):
     admin   = "admin"
 
 class ComplaintType(enum.Enum):
-    academic      = "academic"
-    activities    = "activities"
-    administrative= "administrative"
+    academic      = "Academic"
+    activities    = "Activities"
+    administrative= "Administrative"
     IT            = "IT"
 
 class ComplaintDep(enum.Enum):
@@ -243,6 +243,175 @@ def create_complaint():
     db.session.commit()
 
     return jsonify({"message": "Complaint submitted successfully."}), 201
+
+@app.route('/api/get_admin_name/<admin_email>', methods=['GET'])
+def get_admin_by_email(admin_email):
+    admin = UserModel.query.filter_by(users_email=admin_email).first()
+    if admin:
+        return jsonify({
+            'status': 'success',
+            'name': admin.users_name,
+            'admin_email': admin.users_email
+        })
+    else:
+        return jsonify({'status': 'fail', 'message': 'Admin not found'}), 404
+    
+@app.route('/api/admin/get_all_students', methods=['GET'])
+def get_all_students():
+    students = UserModel.query.filter_by(users_role='student').all()
+    student_list = []
+
+    for student in students:
+        student_list.append({
+            "users_id": student.users_id,
+            "users_name": student.users_name,
+            "users_email": student.users_email
+        })
+
+    return jsonify(student_list)
+
+@app.route('/api/admin/add_student', methods=['POST'])
+def add_student():
+    data = request.get_json()
+    name = data.get('users_name')
+    email = data.get('users_email')
+    password = data.get('users_password')
+
+    if not all([name, email, password]):
+        return jsonify({'status': 'fail', 'message': 'Missing fields'}), 400
+
+    existing_user = UserModel.query.filter_by(users_email=email).first()
+    if existing_user:
+        return jsonify({'status': 'fail', 'message': 'Email already exists'}), 409
+    
+    hashed_password = generate_password_hash(password)
+
+    new_student = UserModel(
+        users_name=name,
+        users_email=email,
+        users_password=hashed_password,  # Consider hashing passwords!
+        users_role='student'
+    )
+
+    db.session.add(new_student)
+    db.session.commit()
+
+    return jsonify({'status': 'success', 'message': 'Student added successfully'})
+
+@app.route('/api/admin/update_student', methods=['PUT'])
+def update_student():
+    data = request.get_json()
+    old_email = data.get('old_email')
+    new_name = data.get('new_name')
+    new_password = data.get('new_password')
+    new_email = data.get('new_email')
+
+    student = UserModel.query.filter_by(users_email=old_email).first()
+    if not student:
+        return jsonify({'status': 'fail', 'message': 'Student not found'}), 404
+
+    if new_name:
+        student.users_name = new_name
+    if new_password:
+        hashed_password = hashed_password = generate_password_hash(new_password)
+        student.users_password = hashed_password
+    if new_email:
+        student.users_email = new_email
+
+    db.session.commit()
+    return jsonify({'status': 'success', 'message': 'Student updated successfully'})
+
+@app.route('/api/admin_delete_student', methods=['DELETE'])
+def delete_student():
+    data = request.get_json()
+    email = data.get('email')
+
+    student = UserModel.query.filter_by(users_email=email).first()
+    if not student:
+        return jsonify({'status': 'fail', 'message': 'Student not found'}), 404
+
+    db.session.delete(student)
+    db.session.commit()
+    return jsonify({'status': 'success', 'message': 'Student deleted successfully'})
+
+@app.route('/api/admin/get_all_complaints', methods=['GET'])
+def get_all_complaints():
+    complaints = ComplaintModel.query.all()
+    results = []
+
+    for c in complaints:
+        student = UserModel.query.filter_by(users_id=c.sender_id).first()
+        student_email = student.users_email if student and c.complaint_dep == 'public' else 'Unknown'
+
+        results.append({
+            'complaint_id': c.complaint_id,
+            'complaint_title': c.complaint_title,
+            'complaint_message': c.complaint_message,
+            'complaint_type': str(c.complaint_type.value),
+            'complaint_status': str(c.complaint_status.value),
+            'complaint_date': c.complaint_created_at.strftime("%Y-%m-%d"),
+            'response_message': c.response_message,
+            'complaint_visibility': str(c.complaint_dep.value),
+            'student_email': student_email  # <- we send this to frontend
+        })
+
+    return jsonify(results)
+
+@app.route('/api/admin/get_complaint', methods=['GET'])
+def get_complaint_by_id():
+    complaint_id = request.args.get('id')
+    if not complaint_id:
+        return jsonify({'status': 'fail', 'message': 'Complaint ID is required'}), 400
+
+    try:
+        uuid_obj = uuid.UUID(complaint_id)
+        complaint = ComplaintModel.query.filter_by(complaint_id=uuid_obj).first()
+    except ValueError:
+        return jsonify({'status': 'fail', 'message': 'Invalid UUID format'}), 400
+
+    if not complaint:
+        return jsonify({'status': 'fail', 'message': 'Complaint not found'}), 404
+
+    student = UserModel.query.get(complaint.sender_id)
+
+    return jsonify({
+        'complaint_id': str(complaint.complaint_id),
+        'complaint_title': complaint.complaint_title,
+        'complaint_message': complaint.complaint_message,
+        'complaint_type': str(complaint.complaint_type),
+        'complaint_dep': str(complaint.complaint_dep),
+        'complaint_status': str(complaint.complaint_status),
+        'complaint_date': complaint.complaint_created_at.isoformat(),
+        'response_message': complaint.response_message,
+        'student_name': student.users_name if student else 'Unknown'
+    })
+
+@app.route('/api/admin/update_status', methods=['POST'])
+def update_status():
+    data = request.get_json()
+    required_fields = ['complaint_id', 'complaint_status']
+    if not all(k in data for k in required_fields):
+        return jsonify({'status': 'fail', 'message': 'Missing required fields'}), 400
+
+    try:
+        complaint_id = uuid.UUID(data['complaint_id'])  # Ensure it's a UUID object
+    except (ValueError, TypeError):
+        return jsonify({'status': 'fail', 'message': 'Invalid complaint_id'}), 400
+
+    complaint = ComplaintModel.query.filter_by(complaint_id=complaint_id).first()
+
+    if not complaint:
+        return jsonify({'status': 'fail', 'message': 'Complaint not found'}), 404
+
+    try:
+        complaint.complaint_status = ComplaintStatus(data['complaint_status'])  # ✅ Enum conversion
+    except ValueError:
+        return jsonify({'status': 'fail', 'message': 'Invalid complaint_status'}), 400
+
+    db.session.commit()
+
+    return jsonify({'status': 'success'})
+
 
 if __name__ == '__main__':
     app.run(debug=True)
