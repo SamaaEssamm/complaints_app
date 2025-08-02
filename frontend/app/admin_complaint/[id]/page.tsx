@@ -1,9 +1,10 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 
 export default function ComplaintDetailsPage() {
+  const router = useRouter();
   const params = useParams();
   const id = Array.isArray(params.id) ? params.id[0] : params.id;
 
@@ -23,7 +24,7 @@ export default function ComplaintDetailsPage() {
         if (!res.ok) throw new Error('Fetch failed');
         const data = await res.json();
         setComplaint(data);
-        setStatus(data.complaint_status); // status = under_checking, under_review, in_progress, done
+        setStatus(data.complaint_status);
       } catch (error) {
         console.error('Error fetching complaint:', error);
       } finally {
@@ -68,6 +69,12 @@ export default function ComplaintDetailsPage() {
     }
   };
 
+  const handleRespond = () => {
+    if (id) {
+      router.push(`/admin_respond?id=${id}`);
+    }
+  };
+
   if (loading) return <p className="p-6">Loading...</p>;
   if (!complaint) return <p className="p-6 text-red-600">Complaint not found.</p>;
 
@@ -97,7 +104,6 @@ export default function ComplaintDetailsPage() {
           </div>
         </div>
 
-
         <div className="mt-6">
           <label htmlFor="status" className="block font-semibold mb-1">Change Status:</label>
           <select
@@ -114,10 +120,19 @@ export default function ComplaintDetailsPage() {
           <button
             onClick={handleUpdateStatus}
             disabled={updating}
-            className="bg-[#003087] text-white px-4 py-1 rounded hover:bg-blue-800"
+            className="bg-[#003087] text-white px-4 py-1 rounded hover:bg-blue-800 mr-2"
           >
             {updating ? 'Updating...' : 'Update'}
           </button>
+          {!complaint.response_message && (
+          <button
+            onClick={handleRespond}
+            className="bg-green-600 text-white px-4 py-1 rounded hover:bg-green-700"
+          >
+            Respond
+          </button>
+        )}
+
 
           {statusMessage && (
             <p className={`mt-2 font-medium ${statusColor}`}>{statusMessage}</p>

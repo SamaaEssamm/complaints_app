@@ -421,6 +421,38 @@ def update_status():
 
     return jsonify({'status': 'success'})
 
+@app.route('/api/admin/respond', methods=['POST'])
+def respond_to_complaint():
+    data = request.get_json()
+    complaint_id = data.get('complaint_id')
+    response_message = data.get('response_message')
+    admin_id = data.get('admin_id')
+
+    if not all([complaint_id, response_message, admin_id]):
+        return jsonify({'status': 'fail', 'reason': 'Missing required fields'})
+
+    complaint = ComplaintModel.query.get(complaint_id)
+
+    if complaint and not complaint.response_message:
+        complaint.response_message = response_message
+        complaint.responder_id = admin_id  # <-- You must have this column in the model
+        db.session.commit()
+        return jsonify({'status': 'success'})
+    else:
+        return jsonify({'status': 'fail', 'reason': 'Invalid complaint or already responded'})
+
+@app.route('/api/get_admin_id', methods=['GET'])
+def get_admin_id():
+    admin_email = request.args.get("admin_email")
+    admin = UserModel.query.filter_by(users_email=admin_email).first()
+
+    if admin:
+        return jsonify({
+            'status': 'success',
+            'admin_id': admin.users_id
+        })
+    else:
+        return jsonify({'status': 'fail', 'reason': 'Admin not found'})
 
 if __name__ == '__main__':
     app.run(debug=True)
