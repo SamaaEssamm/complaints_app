@@ -10,7 +10,7 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     const email = localStorage.getItem('admin_email');
-    if (!email) {
+    if (!email) { 
       if (!redirected.current) {
         redirected.current = true;
         router.replace('/login'); // use replace instead of push

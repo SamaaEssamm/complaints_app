@@ -450,28 +450,8 @@ def get_suggestion_by_id():
         'student_email': student.users_email if student and suggestion.suggestion_dep.value == 'public' else 'Unknown'
     })
 
-@app.route('/api/admin/respond_suggestion', methods=['POST'])
-def respond_to_suggestion():
-    data = request.get_json()
-    suggestion_id = data.get('suggestion_id')
-    response_message = data.get('response_message')
 
-    if not suggestion_id or not response_message:
-        return jsonify({'status': 'fail', 'message': 'ID and response required'}), 400
-
-    try:
-        uuid_obj = uuid.UUID(suggestion_id)
-        suggestion = SuggestionModel.query.filter_by(suggestion_id=uuid_obj).first()
-    except ValueError:
-        return jsonify({'status': 'fail', 'message': 'Invalid ID format'}), 400
-
-    if not suggestion:
-        return jsonify({'status': 'fail', 'message': 'Suggestion not found'}), 404
-
-    suggestion.response_message = response_message
-    db.session.commit()
-
-    return jsonify({'status': 'success', 'message': 'Response saved'}), 200
+    
 
 @app.route('/api/admin/update_status', methods=['POST'])
 def update_status():
