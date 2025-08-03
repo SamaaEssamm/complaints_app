@@ -12,7 +12,7 @@ type Complaint = {
   complaint_status: string;
   complaint_date: string;
   response_message: string | null;
-  student_name: string;
+  student_email: string;
 };
 
 export default function ManageComplaintsPage() {
@@ -88,9 +88,9 @@ export default function ManageComplaintsPage() {
         >
           <option value="All">All</option>
           <option value="IT">IT</option>
-          <option value="Academic">Academic</option>
-          <option value="Activities">Activities</option>
-          <option value="Administrative">Administrative</option>
+          <option value="academic">Academic</option>
+          <option value="activities">Activities</option>
+          <option value="administrative">Administrative</option>
         </select>
       </div>
 
@@ -122,7 +122,7 @@ export default function ManageComplaintsPage() {
                   <td className="px-4 py-2">{c.complaint_type}</td>
                   <td className="px-4 py-2">{new Date(c.complaint_date).toLocaleDateString()}</td>
                   <td className="px-4 py-2">
-                    {c.complaint_dep === 'Public' ? c.student_name : 'Unknown'}
+                    {c.complaint_dep === 'public' ? c.student_email : 'Unknown'}
                   </td>
                   <td className="px-4 py-2">
                     <span className={`font-medium ${getStatusColor(c.complaint_status)}`}>
