@@ -6,7 +6,9 @@ import { useParams } from 'next/navigation';
 export default function SuggestionDetailsPage() {
   const params = useParams();
   const id = Array.isArray(params.id) ? params.id[0] : params.id;
-
+  console.log('params:', params);
+  console.log('suggestion id:', id);
+  
   const [suggestion, setSuggestion] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
@@ -15,7 +17,7 @@ export default function SuggestionDetailsPage() {
 
     const fetchSuggestion = async () => {
       try {
-        const res = await fetch('http://127.0.0.1:5000/api/admin/get_suggestion?id=${id}');
+        const res = await fetch(`http://127.0.0.1:5000/api/admin/get_suggestion?id=${id}`);
         //if (!res.ok) throw new Error('Failed to fetch suggestion');
         const data = await res.json();
         setSuggestion(data);

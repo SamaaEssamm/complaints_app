@@ -12,7 +12,7 @@ export default function ManageSuggestionsPage() {
   useEffect(() => {
     const fetchSuggestions = async () => {
       try {
-        const res = await fetch('http://127.0.0.1:5000/api/admin/get_all_suggestions');
+        const res = await fetch(`http://127.0.0.1:5000/api/admin/get_all_suggestions`);
         if (!res.ok) throw new Error('Failed to fetch suggestions');
         const data = await res.json();
         setSuggestions(data);
