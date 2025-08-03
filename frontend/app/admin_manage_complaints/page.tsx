@@ -52,7 +52,7 @@ export default function ManageComplaintsPage() {
   under_checking: 'Received',
   under_review: 'Under Review',
   in_progress: 'In Progress',
-  done: 'Done',
+  done: 'Responded',
 };
 
   const getStatusColor = (status: string) => {

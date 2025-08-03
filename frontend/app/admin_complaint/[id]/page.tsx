@@ -24,7 +24,7 @@ export default function ComplaintDetailsPage() {
         if (!res.ok) throw new Error('Fetch failed');
         const data = await res.json();
         setComplaint(data);
-        setStatus(data.complaint_status);
+        setStatus(data.complaint_status || '');
       } catch (error) {
         console.error('Error fetching complaint:', error);
       } finally {
@@ -40,7 +40,11 @@ export default function ComplaintDetailsPage() {
   };
 
   const handleUpdateStatus = async () => {
-    if (!id || !status) return;
+    if (!id || !status) {
+      setStatusMessage('Please select a status.');
+      setStatusColor('text-red-600');
+      return;
+    }
 
     setUpdating(true);
     setStatusMessage('');
@@ -75,8 +79,24 @@ export default function ComplaintDetailsPage() {
     }
   };
 
+  const statusMap: Record<string, string> = {
+    under_checking: 'Received',
+    under_review: 'Under Review',
+    in_progress: 'In Progress',
+    done: 'Responded'
+  };
+
+  const typeMap: Record<string, string> = {
+    academic: 'Academic',
+    activities: 'Activities',
+    administrative: 'Administrative',
+    IT: 'IT'
+  };
+
   if (loading) return <p className="p-6">Loading...</p>;
   if (!complaint) return <p className="p-6 text-red-600">Complaint not found.</p>;
+
+  const isResponded = complaint.complaint_status === 'done';
 
   return (
     <div className="min-h-screen bg-white py-10 px-6 md:px-12 lg:px-24">
@@ -84,11 +104,11 @@ export default function ComplaintDetailsPage() {
 
       <div className="bg-gray-50 border rounded-xl p-6 shadow space-y-3">
         <p><span className="font-semibold">Title:</span> {complaint.complaint_title}</p>
-        <p><span className="font-semibold">Type:</span> {complaint.complaint_type}</p>
+        <p><span className="font-semibold">Type:</span> {typeMap[complaint.complaint_type] || complaint.complaint_type}</p>
         <p>
           <span className="font-semibold">Date:</span>{' '}
-          {complaint.complaint_date
-            ? new Date(complaint.complaint_date).toLocaleDateString('en-US', {
+          {complaint.complaint_created_at
+            ? new Date(complaint.complaint_created_at).toLocaleDateString('en-US', {
                 year: 'numeric',
                 month: 'long',
                 day: 'numeric'
@@ -96,7 +116,8 @@ export default function ComplaintDetailsPage() {
             : 'Unknown'}
         </p>
         <p><span className="font-semibold">Student:</span> {complaint.student_email}</p>
-        <p><span className="font-semibold">Status:</span> {complaint.complaint_status}</p>
+        <p><span className="font-semibold">Status:</span> {statusMap[complaint.complaint_status] || complaint.complaint_status}</p>
+
         <div className="mt-4">
           <span className="font-semibold block mb-1">Message:</span>
           <div className="whitespace-pre-wrap bg-white border border-gray-200 rounded-lg p-4 max-h-[500px] overflow-auto">
@@ -110,34 +131,68 @@ export default function ComplaintDetailsPage() {
             id="status"
             value={status}
             onChange={handleStatusChange}
-            className="border rounded px-3 py-1 mr-2"
+            disabled={status === 'done'}
+            className={`border rounded px-3 py-1 mr-2 ${status === 'done' ? 'bg-gray-200 text-gray-600 cursor-not-allowed' : ''}`}
           >
-            <option value="under_checking">Under Checking</option>
+            <option value="">-- Select status --</option>
             <option value="under_review">Under Review</option>
             <option value="in_progress">In Progress</option>
-            <option value="done">Done</option>
           </select>
+
           <button
             onClick={handleUpdateStatus}
-            disabled={updating}
-            className="bg-[#003087] text-white px-4 py-1 rounded hover:bg-blue-800 mr-2"
+            disabled={updating || status === 'done' || !status}
+            className={`px-4 py-1 rounded mr-2 text-white ${status === 'done' || !status ? 'bg-gray-400 cursor-not-allowed' : 'bg-[#003087] hover:bg-blue-800'}`}
           >
             {updating ? 'Updating...' : 'Update'}
           </button>
-          {!complaint.response_message && (
-          <button
-            onClick={handleRespond}
-            className="bg-green-600 text-white px-4 py-1 rounded hover:bg-green-700"
-          >
-            Respond
-          </button>
-        )}
 
+          {!complaint.response_message && (
+            <button
+              onClick={handleRespond}
+              className="bg-green-600 text-white px-4 py-1 rounded hover:bg-green-700"
+            >
+              Respond
+            </button>
+          )}
+
+          {status === 'done' && (
+            <p className="mt-2 text-sm text-gray-700 font-medium">
+              This complaint has been responded to. You cannot change its status.
+            </p>
+          )}
 
           {statusMessage && (
             <p className={`mt-2 font-medium ${statusColor}`}>{statusMessage}</p>
           )}
         </div>
+
+        <div className="mt-6">
+          <span className="font-semibold block mb-1">Admin Response:</span>
+          <div className="bg-white border border-gray-200 rounded-lg p-4 whitespace-pre-wrap">
+            {complaint.response_message ? (
+              <>
+                <p className="mb-2">{complaint.response_message}</p>
+                <p className="text-sm text-gray-600 mt-2">
+                  Responded by <span className="font-medium">{complaint.responder_name || 'Unknown Admin'}</span>{' '}
+                  on{' '}
+                  {complaint.response_created_at
+                    ? new Date(complaint.response_created_at).toLocaleString('en-US', {
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric',
+                        hour: 'numeric',
+                        minute: '2-digit',
+                      })
+                    : 'Unknown Date'}
+                </p>
+              </>
+            ) : (
+              "You still didn't respond to this complaint."
+            )}
+          </div>
+        </div>
+
       </div>
     </div>
   );

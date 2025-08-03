@@ -122,7 +122,7 @@ function formatDate(dateStr: string | null | undefined) {
                       <span className="text-green-600 font-medium">In Progress</span>
                     )}
                     {c.complaint_status === "done" && (
-                      <span className="text-gray-600 font-medium">Done</span>
+                      <span className="text-gray-600 font-medium">Responded</span>
                     )}
                   </td>
                 </tr>

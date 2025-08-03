@@ -52,8 +52,15 @@ export default function RespondPage() {
 
       const result = await res.json();
       if (result.status === 'success') {
+        // Also update complaint status to Responded
+        await fetch('http://127.0.0.1:5000/api/admin/update_status', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ complaint_id: id, new_status: 'done' })
+        });
+
         setMessage('Response submitted!');
-        setTimeout(() => router.push('/admin_manage_complaints'), 3000);
+        setTimeout(() => router.push('/admin_manage_complaints'), 1000);
       } else {
         setMessage('Failed to submit response.');
       }
