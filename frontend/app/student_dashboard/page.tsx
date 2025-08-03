@@ -1,13 +1,80 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-
 export default function Dashboard() {
   const [studentName, setStudentName] = useState('Student');
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
+  const redirected = useRef(false); // 👈 prevent repeated redirects
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const handleNotificationClick = (notification: Notification) => {
+  if (!notification.is_read) {
+    // اعمل له تحديث في قاعدة البيانات إنه مقروء
+    fetch('http://localhost:5000/api/admin/mark_notification_read', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ notification_id: notification.id }) // محتاجة الـ id
+    }).then(() => {
+      // بعد ما يتعمل update، نحدث حالة الإشعارات في الواجهة
+      setNotifications(prev =>
+        prev.map(n =>
+          n === notification ? { ...n, is_read: true } : n
+        )
+      );
+    });
+  }
 
-  useEffect(() => {
+  // توجيه للشكوى
+  if (notification.complaint_id) {
+    router.push(`/student_complaint_details?id=${notification.complaint_id}`);
+  }
+};
+
+type Notification = {
+  id: string;
+  message: string;
+  is_read: boolean;
+  created_at: string;
+  complaint_id?: string;
+};
+
+//noti useeffect 
+useEffect(() => {
+  const email = localStorage.getItem('student_email');
+  if (!email) {
+    router.push('/login');
+  } else {
+    // 1. Fetch student name
+    fetch(`http://localhost:5000/api/student/${encodeURIComponent(email)}`)
+      .then(res => res.json())
+      .then(data => {
+        if (data.name) {
+          setStudentName(data.name);
+        } else {
+          setStudentName('Student');
+        }
+        setIsLoading(false);
+      })
+      .catch(() => {
+        setStudentName('Student');
+        setIsLoading(false);
+      });
+
+    // 2. Fetch notifications for student
+    fetch(`http://localhost:5000/api/student/notifications?student_email=${encodeURIComponent(email)}`)
+      .then(res => res.json())
+      .then(data => {
+        setNotifications(data);
+      })
+      .catch(error => {
+        console.error("Failed to fetch student notifications:", error);
+      });
+  }
+}, [router]);
+
+
+ useEffect(() => {
   const email = localStorage.getItem('student_email');
   if (!email) {
     router.push('/login');
@@ -82,22 +149,72 @@ export default function Dashboard() {
         Responses
       </button>
     </li>
+    <li className="relative">
+  <button
+    onClick={() => setShowNotifications(!showNotifications)}
+    className="relative hover:text-gray-300 transition text-lg"
+    title="Notifications"
+  >
+    🔔
+    {notifications.filter(n => !n.is_read).length > 0 && (
+  <span className="absolute -top-1 -right-2 bg-red-500 text-white text-xs px-1.5 py-0.5 rounded-full">
+    {notifications.filter(n => !n.is_read).length}
+  </span>
+)}
+
+  </button>
+   {/* Dropdown تحت الجرس */}
+  {showNotifications && (
+    <div className="absolute right-0 mt-2 w-80 bg-white border border-gray-300 rounded shadow-lg p-4 z-50 max-h-96 overflow-y-auto">
+      <h2 className="text-lg font-bold text-[#003087] mb-2">Notifications</h2>
+      {notifications.length === 0 ? (
+        <p className="text-sm text-gray-600">No new notifications</p>
+      ) : (
+        notifications.map((n, i) => (
+  <div
+  key={i}
+  onClick={async () => {
+    await fetch('http://localhost:5000/api/admin/mark_notification_read', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ notification_id: n.id }),
+    });
+    router.push('/student_complaint');
+  }}
+  className={`mb-3 border-b pb-2 cursor-pointer p-2 rounded transition ${
+    n.is_read ? 'bg-gray-100 text-gray-500' : 'bg-blue-100 text-black font-semibold'
+  } hover:bg-gray-200`}
+>
+  <p className="text-sm">{n.message}</p>
+  <p className="text-xs">{new Date(n.created_at).toLocaleString()}</p>
+</div>
+
+))
+
+
+      )}
+    </div>
+  )}
+</li>
     <li>
-      <button
-        onClick={() => router.push('/notifications')}
-        className="hover:underline hover:text-gray-300 transition"
-      >
-        Notifications
-      </button>
-    </li>
-    <li>
-      <button
-        onClick={handleLogout}
-        className="hover:underline hover:text-gray-300 transition"
-      >
-        Logout
-      </button>
-    </li>
+  <button
+    onClick={handleLogout}
+    className="hover:text-gray-300 transition"
+    title="Logout"
+  >
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="24"
+      height="24"
+      fill="white"
+      viewBox="0 0 24 24"
+    >
+       <title>Logout</title>
+      <path d="M10 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h5v-2H5V5h5V3zm10.707 9.293-3-3-1.414 1.414L17.586 11H9v2h8.586l-1.293 1.293 1.414 1.414 3-3a1 1 0 0 0 0-1.414z"/>
+    </svg>
+  </button>
+</li>
+
   </ul>
 </nav>
 

@@ -12,7 +12,7 @@ from flask_cors import CORS
 
 
 app = Flask(__name__)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://ghada:ghada@localhost:5432/complaint_app'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://sama:1234@localhost:5432/complaints_db'
 db = SQLAlchemy(app)
 migrate = Migrate(app, db)
 api = Api(app)
@@ -240,6 +240,22 @@ def create_complaint():
     )
 
     db.session.add(new_complaint)
+    #db.session.commit()
+    # ➕ Add notification for admin
+    admin = UserModel.query.filter_by(users_role='admin').first()
+    if admin:
+        notification = NotificationModel(
+            user_id=admin.users_id,
+            notifications_message=f"New complaint received from {user.users_name}."
+        )
+        db.session.add(notification)
+     # ➕ Add notification for student
+    student_notification = NotificationModel(
+        user_id=user.users_id,
+        notifications_message="Your complaint has been received and is pending review.",
+        #complaint_id=new_complaint.complaint_id  # لو حابة توصليه بالشكوى
+    )
+    db.session.add(student_notification)
     db.session.commit()
 
     return jsonify({"message": "Complaint submitted successfully."}), 201
@@ -436,6 +452,16 @@ def respond_to_complaint():
     if complaint and not complaint.response_message:
         complaint.response_message = response_message
         complaint.responder_id = admin_id  # <-- You must have this column in the model
+
+        # 🆕 Send notification to student
+        student_id = complaint.sender_id
+        notification = NotificationModel(
+            user_id=student_id,
+            notifications_message="Your complaint has been answered. Click to view.",
+            #complaint_id=complaint.complaint_id  # رابط الشكوى
+        )
+        db.session.add(notification)
+
         db.session.commit()
         return jsonify({'status': 'success'})
     else:
@@ -453,6 +479,72 @@ def get_admin_id():
         })
     else:
         return jsonify({'status': 'fail', 'reason': 'Admin not found'})
+
+@app.route('/api/admin/notifications', methods=['GET'])
+def get_admin_notifications():
+    email = request.args.get("admin_email")
+    admin = UserModel.query.filter_by(users_email=email, users_role='admin').first()
+    if not admin:
+        return jsonify([])
+
+    notifications = NotificationModel.query.filter_by(user_id=admin.users_id).order_by(NotificationModel.notification_created_at.desc()).all()
+
+    return jsonify([
+        {
+            "id": str(n.notification_id),
+            "message": n.notifications_message,
+            "is_read": n.notification_is_read,
+            "created_at": n.notification_created_at.isoformat(),
+            #"complaint_id": str(n.complaint_id) if n.complaint_id else None
+        }
+        for n in notifications
+    ])
+
+@app.route('/api/admin/mark_notification_read', methods=['POST'])
+def mark_notification_read():
+    data = request.get_json()
+    notif_id = data.get('notification_id')
+
+    notification = NotificationModel.query.filter_by(notification_id=notif_id).first()
+    if not notification:
+        return jsonify({"status": "fail", "message": "Notification not found"}), 404
+
+    notification.notification_is_read = True
+    db.session.commit()
+    return jsonify({"status": "success"})
+
+@app.route('/api/student/notifications', methods=['GET'])
+def get_student_notifications():
+    email = request.args.get("student_email")
+    student = UserModel.query.filter_by(users_email=email, users_role='student').first()
+    if not student:
+        return jsonify([])
+
+    notifications = NotificationModel.query.filter_by(user_id=student.users_id).order_by(NotificationModel.notification_created_at.desc()).all()
+
+    return jsonify([
+        {
+            "id": str(n.notification_id),
+            "message": n.notifications_message,
+            "is_read": n.notification_is_read,
+            "created_at": n.notification_created_at.isoformat(),
+            "complaint_id": str(n.complaint_id) if hasattr(n, 'complaint_id') and n.complaint_id else None
+        }
+        for n in notifications
+    ])
+
+@app.route('/api/student/mark_notification_read', methods=['POST'])
+def mark_student_notification_read():
+    data = request.get_json()
+    notif_id = data.get('notification_id')
+
+    notification = NotificationModel.query.filter_by(notification_id=notif_id).first()
+    if not notification:
+        return jsonify({"status": "fail", "message": "Notification not found"}), 404
+
+    notification.notification_is_read = True
+    db.session.commit()
+    return jsonify({"status": "success"})
 
 if __name__ == '__main__':
     app.run(debug=True)
