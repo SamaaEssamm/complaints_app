@@ -8,27 +8,27 @@ export default function Dashboard() {
   const router = useRouter();
 
   useEffect(() => {
-  const email = localStorage.getItem('student_email');
-  if (!email) {
-    router.push('/login');
-  } else {
-    // Fetch the real name from the backend using the email
-    fetch(`http://localhost:5000/api/student/${encodeURIComponent(email)}`)
-      .then(res => res.json())
-      .then(data => {
-        if (data.name) {
-          setStudentName(data.name);
-        } else {
-          setStudentName('Student'); // fallback
-        }
-        setIsLoading(false);
-      })
-      .catch(() => {
-        setStudentName('Student');
-        setIsLoading(false);
-      });
-  }
-}, [router]);
+    const email = localStorage.getItem('student_email');
+    if (!email) {
+      router.push('/login');
+    } else {
+      // Fetch the real name from the backend using the email
+      fetch(`http://localhost:5000/api/student/${encodeURIComponent(email)}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.name) {
+            setStudentName(data.name);
+          } else {
+            setStudentName('Student'); // fallback
+          }
+          setIsLoading(false);
+        })
+        .catch(() => {
+          setStudentName('Student');
+          setIsLoading(false);
+        });
+    }
+  }, [router]);
 
 
   const handleLogout = () => {
@@ -36,7 +36,7 @@ export default function Dashboard() {
     router.push('/login');
   };
 
-  if (isLoading) return null; 
+  if (isLoading) return null;
 
   return (
     <div
@@ -67,7 +67,7 @@ export default function Dashboard() {
             </button>
           </li>
 
-          <li><a href="/suggestions" className="hover:underline hover:text-gray-300 transition">Suggestions</a></li>
+          <li><a href="/student_suggestions" className="hover:underline hover:text-gray-300 transition">Suggestions</a></li>
           <li><a href="/responses" className="hover:underline hover:text-gray-300 transition">Responses</a></li>
           <li><a href="/notifications" className="hover:underline hover:text-gray-300 transition">Notifications</a></li>
           <li>
