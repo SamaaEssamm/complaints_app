@@ -8,8 +8,7 @@ from sqlalchemy.dialects.postgresql import UUID, ENUM, BYTEA, TIMESTAMP
 from flask_restful import Resource, Api, reqparse, fields, marshal_with, abort
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_cors import CORS
-
-
+from datetime import datetime, timezone
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://ghada:ghada@localhost:5432/complaint_app'
@@ -17,8 +16,6 @@ db = SQLAlchemy(app)
 migrate = Migrate(app, db)
 api = Api(app)
 CORS(app)
-
-
 
 #app models
 class UserRole(enum.Enum):
@@ -29,7 +26,7 @@ class ComplaintType(enum.Enum):
     academic      = "Academic"
     activities    = "activities"
     administrative= "administrative"
-    IT            = "aT"
+    IT            = "IT"
 
 class ComplaintDep(enum.Enum):
     public  = "public"
@@ -218,7 +215,12 @@ def get_complaints():
         return jsonify([])  # Return an empty list if user not found
 
     complaints = ComplaintModel.query.filter_by(sender_id=user.users_id).all()
-    complaints_data = [complaint.to_dict() for complaint in complaints]
+    complaints_data = []
+    for complaint in complaints:
+        data = complaint.to_dict()
+        data["complaint_status"] = complaint.complaint_status.value  # ✅ force enum to string
+        print(complaint.complaint_status.value)
+        complaints_data.append(data)
 
     return jsonify(complaints_data)  # ✅ Return array of complaints
 
@@ -361,37 +363,42 @@ def get_all_complaints():
             'complaint_visibility': str(c.complaint_dep.value),
             'student_email': student_email
         })
-
+        
     return jsonify(results)
-
 
 @app.route('/api/admin/get_complaint', methods=['GET'])
 def get_complaint_by_id():
-    complaint_id = request.args.get('id')
+    complaint_id = request.args.get("id")
     if not complaint_id:
-        return jsonify({'status': 'fail', 'message': 'Complaint ID is required'}), 400
+        return jsonify({'status': 'fail', 'message': 'Missing complaint ID'}), 400
 
-    try:
-        uuid_obj = uuid.UUID(complaint_id)
-        complaint = ComplaintModel.query.filter_by(complaint_id=uuid_obj).first()
-    except ValueError:
-        return jsonify({'status': 'fail', 'message': 'Invalid UUID format'}), 400
+    complaint = ComplaintModel.query.filter_by(complaint_id=complaint_id).first()
 
     if not complaint:
         return jsonify({'status': 'fail', 'message': 'Complaint not found'}), 404
 
-    student = UserModel.query.filter_by(users_id=complaint.sender_id).first()
-
+    # Get admin name if responded
+    responder_name = None
+    if complaint.responder_id:
+        admin = UserModel.query.get(complaint.responder_id)
+        if admin:
+            responder_name = admin.users_name
+    print(complaint.response_created_at )
+    # Construct response
     return jsonify({
-        'complaint_id': str(complaint.complaint_id),
-        'complaint_title': complaint.complaint_title,
-        'complaint_message': complaint.complaint_message,
-        'complaint_type': str(complaint.complaint_type.name),
-        'complaint_dep': str(complaint.complaint_dep),
-        'complaint_status': str(complaint.complaint_status.name),
-        'complaint_date': complaint.complaint_created_at,
-        'response_message': complaint.response_message,
-        'student_email': student.users_email if student and complaint.complaint_dep.name == "public" else "Unknown",
+        "status": "success",
+        "complaint_id": str(complaint.complaint_id),
+        "complaint_title": complaint.complaint_title,
+        "complaint_message": complaint.complaint_message,
+        "complaint_type": complaint.complaint_type.name if complaint.complaint_type else None,
+        "complaint_dep": complaint.complaint_dep.name if complaint.complaint_dep else None,
+        "complaint_status": complaint.complaint_status.name if complaint.complaint_status else None,
+        "complaint_created_at": complaint.complaint_created_at.isoformat() if complaint.complaint_created_at else None,
+        "student_email": complaint.sender.users_email if complaint.sender else None,
+
+        "response_message": complaint.response_message if complaint.response_message else None,
+        "response_created_at": complaint.response_created_at.isoformat() if complaint.response_created_at else None,
+        "responder_name": responder_name
     })
 
 @app.route('/api/admin/update_status', methods=['POST'])
@@ -435,7 +442,9 @@ def respond_to_complaint():
 
     if complaint and not complaint.response_message:
         complaint.response_message = response_message
-        complaint.responder_id = admin_id  # <-- You must have this column in the model
+        complaint.responder_id = admin_id  # Ensure this column exists in your model
+        complaint.complaint_status = 'done'  # ✅ Set status to responded
+        complaint.response_created_at = datetime.now(timezone.utc)
         db.session.commit()
         return jsonify({'status': 'success'})
     else:
@@ -453,6 +462,7 @@ def get_admin_id():
         })
     else:
         return jsonify({'status': 'fail', 'reason': 'Admin not found'})
+
 
 if __name__ == '__main__':
     app.run(debug=True)

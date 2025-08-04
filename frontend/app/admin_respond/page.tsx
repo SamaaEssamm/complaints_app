@@ -60,7 +60,7 @@ export default function RespondPage() {
         });
 
         setMessage('Response submitted!');
-        setTimeout(() => router.push('/admin_manage_complaints'), 1000);
+          setTimeout(() => router.push(`/admin_complaint/${id}`), 1000);
       } else {
         setMessage('Failed to submit response.');
       }

@@ -18,12 +18,11 @@ type Complaint = {
 export default function ManageComplaintsPage() {
   const [complaints, setComplaints] = useState<Complaint[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedType, setSelectedType] = useState<string>('All');
-  const router = useRouter();
+const [selectedType, setSelectedType] = useState("All");
+const [selectedStatus, setSelectedStatus] = useState("All");
 
-  const filteredComplaints = complaints.filter(
-    (c) => selectedType === 'All' || c.complaint_type === selectedType
-  );
+
+  const router = useRouter();
 
   useEffect(() => {
     const fetchComplaints = async () => {
@@ -47,6 +46,36 @@ export default function ManageComplaintsPage() {
 
     fetchComplaints();
   }, []);
+
+  const filteredComplaints = complaints.filter((complaint) => {
+  const typeMatch =
+    selectedType === "All" || complaint.complaint_type === selectedType;
+
+  const normalizedStatus =
+    selectedStatus === "responded"
+      ? "done"
+      : selectedStatus === "received"
+      ? "under_checking"
+      : selectedStatus === "under review"
+      ? "under_review"
+      : selectedStatus;
+
+  const statusMatch =
+    selectedStatus === "All" ||
+    complaint.complaint_status === normalizedStatus;
+
+  return typeMatch && statusMatch;
+});
+
+
+
+const typeLabels: { [key: string]: string } = {
+  IT: 'IT',
+  academic: 'Academic',
+  activities: 'Activities',
+  administrative: 'Administrative',
+};
+
 
   const statusLabels: { [key: string]: string } = {
   under_checking: 'Received',
@@ -75,24 +104,46 @@ export default function ManageComplaintsPage() {
     <div className="bg-white min-h-screen py-10 px-6 md:px-12 lg:px-24">
       <h1 className="text-3xl font-bold text-[#003087] mb-8">Manage Complaints</h1>
 
-      {/* Filter Dropdown */}
-      <div className="mb-6">
-        <label htmlFor="filter" className="mr-2 font-medium text-gray-700">
-          Filter by Type:
-        </label>
-        <select
-          id="filter"
-          value={selectedType}
-          onChange={(e) => setSelectedType(e.target.value)}
-          className="border border-gray-300 rounded px-3 py-1"
-        >
-          <option value="All">All</option>
-          <option value="IT">IT</option>
-          <option value="academic">Academic</option>
-          <option value="activities">Activities</option>
-          <option value="administrative">Administrative</option>
-        </select>
-      </div>
+      <div className="flex gap-4 mb-6">
+  {/* Type Filter */}
+  <div>
+    <label htmlFor="typeFilter" className="mr-2 font-medium text-gray-700">
+      Filter by Type:
+    </label>
+    <select
+      id="typeFilter"
+      value={selectedType}
+      onChange={(e) => setSelectedType(e.target.value)}
+      className="border border-gray-300 rounded px-3 py-1"
+    >
+      <option value="All">All</option>
+      <option value="IT">IT</option>
+      <option value="academic">Academic</option>
+      <option value="activities">Activities</option>
+      <option value="administrative">Administrative</option>
+    </select>
+  </div>
+
+  {/* Status Filter */}
+  <div>
+    <label htmlFor="statusFilter" className="mr-2 font-medium text-gray-700">
+      Filter by Status:
+    </label>
+    <select
+      id="statusFilter"
+      value={selectedStatus}
+      onChange={(e) => setSelectedStatus(e.target.value)}
+      className="border border-gray-300 rounded px-3 py-1"
+    >
+      <option value="All">All</option>
+      <option value="under_checking">Received</option>
+      <option value="under_review">Under Review</option>
+      <option value="in_progress">In Progress</option>
+      <option value="responded">Responded</option>
+    </select>
+  </div>
+</div>
+
 
       {loading ? (
         <p>Loading complaints...</p>
@@ -119,7 +170,7 @@ export default function ManageComplaintsPage() {
 `)}
                 >
                   <td className="px-4 py-2">{c.complaint_title}</td>
-                  <td className="px-4 py-2">{c.complaint_type}</td>
+                  <td className="px-4 py-2">{typeLabels[c.complaint_type] || c.complaint_type}</td>
                   <td className="px-4 py-2">{new Date(c.complaint_date).toLocaleDateString()}</td>
                   <td className="px-4 py-2">
                     {c.complaint_dep === 'public' ? c.student_email : 'Unknown'}
