@@ -3,79 +3,133 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
-export default function ManageSuggestionsPage() {
-  const router = useRouter();
-  const [suggestions, setSuggestions] = useState<any[]>([]);
+type suggestion = {
+  suggestion_id: number;
+  suggestion_title: string;
+  suggestion_message: string;
+  suggestion_type: string;
+  suggestion_dep: string;
+  suggestion_status: string;
+  suggestion_date: string;
+  response_message: string | null;
+  student_email: string;
+};
+
+export default function ManagesuggestionsPage() {
+  const [suggestions, setsuggestions] = useState<suggestion[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filterType, setFilterType] = useState('');
+  const [selectedType, setSelectedType] = useState<string>('All');
+  const router = useRouter();
+
+  const filteredsuggestions = suggestions.filter(
+    (c) => selectedType === 'All' || c.suggestion_type === selectedType
+  );
 
   useEffect(() => {
-    const fetchSuggestions = async () => {
+    const fetchsuggestions = async () => {
       try {
-        const res = await fetch(`http://127.0.0.1:5000/api/admin/get_all_suggestions`);
-        if (!res.ok) throw new Error('Failed to fetch suggestions');
+        const res = await fetch('http://127.0.0.1:5000/api/admin/get_all_suggestions');
         const data = await res.json();
-        setSuggestions(data);
+
+        if (Array.isArray(data)) {
+          setsuggestions(data);
+        } else if (Array.isArray(data.suggestions)) {
+          setsuggestions(data.suggestions);
+        } else {
+          setsuggestions([]);
+        }
       } catch (error) {
-        console.error('Error fetching suggestions:', error);
+        console.error('Failed to fetch suggestions:', error);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchSuggestions();
+    fetchsuggestions();
   }, []);
 
-  const handleRowClick = (id: string) => {
-    router.push('/admin_manage_suggestions/${id}');
-  };
+  const statusLabels: { [key: string]: string } = {
+  under_checking: 'Received',
+  under_review: 'Under Review',
+  in_progress: 'In Progress',
+  done: 'Done',
+};
 
-  const filteredSuggestions = suggestions.filter(s =>
-    s.suggestion_title.toLowerCase().includes(filterType.toLowerCase())
-  );
+  const getStatusColor = (status: string) => {
+  switch (status) {
+    case 'under_checking':
+      return 'text-green-600';
+    case 'under_review':
+      return 'text-blue-600';
+    case 'in_progress':
+      return 'text-orange-600';
+    case 'done':
+      return 'text-purple-600';
+    default:
+      return 'text-gray-500';
+  }
+};
+
 
   return (
-    <div className="min-h-screen bg-white py-10 px-6 md:px-12 lg:px-24">
-      <h1 className="text-3xl font-bold text-[#003087] mb-6">Manage Suggestions</h1>
+    <div className="bg-white min-h-screen py-10 px-6 md:px-12 lg:px-24">
+      <h1 className="text-3xl font-bold text-[#003087] mb-8">Manage suggestions</h1>
 
-      <div className="mb-4">
-        <label htmlFor="filter" className="block font-semibold mb-1">Filter by Title:</label>
-        <input
+      {/* Filter Dropdown */}
+      <div className="mb-6">
+        <label htmlFor="filter" className="mr-2 font-medium text-gray-700">
+          Filter by Type:
+        </label>
+        <select
           id="filter"
-          type="text"
-          value={filterType}
-          onChange={(e) => setFilterType(e.target.value)}
-          className="border rounded px-3 py-1 w-full md:w-1/3"
-          placeholder="Search suggestions..."
-        />
+          value={selectedType}
+          onChange={(e) => setSelectedType(e.target.value)}
+          className="border border-gray-300 rounded px-3 py-1"
+        >
+          <option value="All">All</option>
+          <option value="IT">IT</option>
+          <option value="academic">Academic</option>
+          <option value="activities">Activities</option>
+          <option value="administrative">Administrative</option>
+        </select>
       </div>
 
       {loading ? (
-        <p>Loading...</p>
-      ) : filteredSuggestions.length === 0 ? (
-        <p className="text-red-600">No suggestions found.</p>
+        <p>Loading suggestions...</p>
+      ) : filteredsuggestions.length === 0 ? (
+        <p className="text-gray-500">No suggestions found.</p>
       ) : (
-        <div className="overflow-auto">
-          <table className="min-w-full bg-white border rounded-lg shadow">
-            <thead className="bg-gray-100">
+        <div className="overflow-x-auto rounded-xl shadow border border-gray-200">
+          <table className="min-w-full bg-white text-sm">
+            <thead className="bg-gray-100 text-left">
               <tr>
-                <th className="py-2 px-4 border">Title</th>
-                <th className="py-2 px-4 border">Date</th>
-                <th className="py-2 px-4 border">Visibility</th>
-                <th className="py-2 px-4 border">Student</th>
+                <th className="px-4 py-3 font-medium text-gray-700">Title</th>
+                <th className="px-4 py-3 font-medium text-gray-700">Type</th>
+                <th className="px-4 py-3 font-medium text-gray-700">Date</th>
+                <th className="px-4 py-3 font-medium text-gray-700">Student</th>
+                <th className="px-4 py-3 font-medium text-gray-700">Status</th>
               </tr>
             </thead>
             <tbody>
-              {filteredSuggestions.map((s) => (
+              {filteredsuggestions.map((c) => (
                 <tr
-                  key={s.suggestion_id}
-                  onClick={() => handleRowClick(s.suggestion_id)}
-                  className="cursor-pointer hover:bg-gray-50"
+                  key={c.suggestion_id}
+                  className="border-t border-gray-200 hover:bg-gray-100 cursor-pointer transition"
+                  onClick={() => router.push(`/admin_suggestion/${c.suggestion_id}
+`)}
                 >
-                  <td className="py-2 px-4 border">{s.suggestion_title}</td>
-                  <td className="py-2 px-4 border">{s.suggestion_date}</td>
-                  <td className="py-2 px-4 border">{s.suggestion_visibility}</td>
-                  <td className="py-2 px-4 border">{s.student_email}</td>
+                  <td className="px-4 py-2">{c.suggestion_title}</td>
+                  <td className="px-4 py-2">{c.suggestion_type}</td>
+                  <td className="px-4 py-2">{new Date(c.suggestion_date).toLocaleDateString()}</td>
+                  <td className="px-4 py-2">
+                    {c.suggestion_dep === 'public' ? c.student_email : 'Unknown'}
+                  </td>
+                  <td className="px-4 py-2">
+                    <span className={`font-medium ${getStatusColor(c.suggestion_status)}`}>
+                    {statusLabels[c.suggestion_status] || c.suggestion_status}
+                    </span>
+
+                  </td>
                 </tr>
               ))}
             </tbody>

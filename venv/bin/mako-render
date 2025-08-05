@@ -1,4 +1,4 @@
-#!/home/vboxuser/complaints_app/venv/bin/python3
+#!/home/vboxuser/complaint_app/venv/bin/python3.12
 # -*- coding: utf-8 -*-
 import re
 import sys

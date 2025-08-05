@@ -40,16 +40,16 @@ export default function AdminDashboard() {
   return (
     <div
       className="min-h-screen bg-cover bg-center text-[#003087] flex flex-col"
-      style={{ backgroundImage: "url('/home.jpg')" }}
+      style={{ backgroundImage: "url('/home1-ar-lzneos.jpg')" }}
     >
       {/* Header */}
       <header className="w-full flex justify-between items-center px-10 py-4 bg-transparent shadow-none">
         <div className="flex flex-col items-center">
-          <img src="/faculty-logo.png" alt="Faculty Logo" className="w-20 h-20 mb-1 drop-shadow-lg" />
+          <img src="/fci_new_logo2.png" alt="Faculty Logo" className="w-20 h-20 mb-1 drop-shadow-lg" />
           <p className="text-sm font-semibold text-white text-center">Faculty of Computer & Information</p>
         </div>
         <div className="flex flex-col items-center">
-          <img src="/university-logo.png" alt="University Logo" className="w-20 h-20 mb-1 drop-shadow-lg" />
+          <img src="/assuitUnivirsity.png" alt="University Logo" className="w-20 h-20 mb-1 drop-shadow-lg" />
           <p className="text-sm font-semibold text-white text-center">Assiut University</p>
         </div>
       </header>
