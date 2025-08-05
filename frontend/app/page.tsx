@@ -10,7 +10,7 @@ export default function page() {
       <header className="flex justify-between items-center px-10 py-6">
         <div className="flex flex-col items-center">
           <img
-            src="/faculty-logo.png"
+            src="/fci_new_logo2.png"
             alt="Faculty Logo"
             className="w-28 h-28 drop-shadow-lg mb-1"
           />
@@ -20,7 +20,7 @@ export default function page() {
         </div>
         <div className="flex flex-col items-center">
           <img
-            src="/university-logo.png"
+            src="/assuitUnivirsity.png"
             alt="University Logo"
             className="w-28 h-28 drop-shadow-lg mb-1"
           />

@@ -11,7 +11,7 @@ from flask_cors import CORS
 from datetime import datetime, timezone
 
 app = Flask(__name__)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://ghada:ghada@localhost:5432/complaint_app'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://sama:1234@localhost:5432/complaints_db'
 db = SQLAlchemy(app)
 migrate = Migrate(app, db)
 api = Api(app)
@@ -246,6 +246,53 @@ def create_complaint():
 
     return jsonify({"message": "Complaint submitted successfully."}), 201
 
+
+@app.route("/api/student/showsuggestions", methods=["GET"])
+def get_suggestions():
+    student_email = request.args.get("student_email")
+    if not student_email:
+        return jsonify({"message": "Missing email"}), 400
+
+    user = UserModel.query.filter_by(users_email=student_email).first()
+    if not user:
+        return jsonify([])
+
+    suggestions = SuggestionModel.query.filter_by(users_id=user.users_id).all()
+    suggestions_data = [
+        {
+            "suggestion_id": str(s.suggestion_id),
+            "user_id": str(s.users_id),
+            "suggestion_type": s.suggestion_type.name if s.suggestion_type else None,
+            "suggestion_dep": s.suggestion_dep.name if s.suggestion_dep else None,
+            "suggestion_title": s.suggestion_title,
+            "suggestion_message": s.suggestion_message,
+            "suggestion_created_at": s.suggestion_created_at.isoformat() if s.suggestion_created_at else None
+        }
+        for s in suggestions
+    ]
+    return jsonify(suggestions_data), 200
+
+
+@app.route('/api/student/addsuggestion', methods=['POST'])
+def create_suggestion():
+    data = request.get_json()
+    email = data.get('student_email')
+    user = UserModel.query.filter_by(users_email=email).first()
+    if not user:
+        return jsonify({"message": "User not found"}), 404
+
+    new_suggestion = SuggestionModel(
+        suggestion_title=data.get('suggestion_title'),
+        suggestion_message=data.get('suggestion_message'),
+        suggestion_type=data.get('suggestion_type'),
+        suggestion_dep=data.get('suggestion_dep'),
+        users_id=user.users_id
+    )
+    db.session.add(new_suggestion)
+    db.session.commit()
+    return jsonify({"message": "Suggestion submitted successfully."}), 201
+
+
 @app.route('/api/get_admin_name/<admin_email>', methods=['GET'])
 def get_admin_by_email(admin_email):
     admin = UserModel.query.filter_by(users_email=admin_email).first()
@@ -400,6 +447,65 @@ def get_complaint_by_id():
         "response_created_at": complaint.response_created_at.isoformat() if complaint.response_created_at else None,
         "responder_name": responder_name
     })
+
+@app.route('/api/admin/get_all_suggestions', methods=['GET'])
+def get_all_suggestions():
+    suggestion_dep = request.args.get('dep')  # مثلاً: public أو private
+
+    if suggestion_dep and suggestion_dep.lower() in ['public', 'private']:
+        suggestions = SuggestionModel.query.filter(SuggestionModel.suggestion_dep == suggestion_dep.lower()).all()
+    else:
+        suggestions = SuggestionModel.query.all()
+
+    results = []
+
+    for s in suggestions:
+        student = UserModel.query.filter_by(users_id=s.users_id).first()
+        student_email = student.users_email if student and s.suggestion_dep == 'public' else 'Unknown'
+
+        results.append({
+            'suggestion_id': s.suggestion_id,
+            'suggestion_title': s.suggestion_title,
+            'suggestion_message': s.suggestion_message,
+            'suggestion_type': str(s.suggestion_type.value),
+            'suggestion_dep': str(s.suggestion_dep.value),
+            'suggestion_date': s.suggestion_created_at.strftime("%Y-%m-%d"),
+            'student_email': student_email
+        })
+
+    return jsonify(results)
+
+
+@app.route('/api/admin/get_suggestion', methods=['GET'])
+def get_suggestion_by_id():
+    suggestion_id = request.args.get('id')
+    if not suggestion_id:
+        return jsonify({'status': 'fail', 'message': 'suggestion ID is required'}), 400
+
+    try:
+        uuid_obj = uuid.UUID(suggestion_id)
+        suggestion = suggestionModel.query.filter_by(suggestion_id=uuid_obj).first()
+    except ValueError:
+        return jsonify({'status': 'fail', 'message': 'Invalid UUID format'}), 400
+
+    if not suggestion:
+        return jsonify({'status': 'fail', 'message': 'suggestion not found'}), 404
+
+    student = UserModel.query.filter_by(users_id=suggestion.sender_id).first()
+
+    return jsonify({
+        'suggestion_id': str(suggestion.suggestion_id),
+        'suggestion_title': suggestion.suggestion_title,
+        'suggestion_message': suggestion.suggestion_message,
+        'suggestion_type': str(suggestion.suggestion_type.name),
+        'suggestion_dep': str(suggestion.suggestion_dep),
+        'suggestion_status': str(suggestion.suggestion_status.name),
+        'suggestion_date': suggestion.suggestion_created_at,
+        'response_message': suggestion.response_message,
+        'student_email': student.users_email if student and suggestion.suggestion_dep.name == "public" else "Unknown",
+    })
+
+
 
 @app.route('/api/admin/update_status', methods=['POST'])
 def update_status():
