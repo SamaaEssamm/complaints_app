@@ -56,6 +56,7 @@ export default function Dashboard() {
       </header>
 
       {/* Navigation Bar */}
+<<<<<<< HEAD
       <nav className="bg-[#003087] text-white py-3 shadow-md">
         <ul className="flex justify-center gap-6 font-semibold text-sm md:text-base">
           <li>
@@ -80,6 +81,52 @@ export default function Dashboard() {
           </li>
         </ul>
       </nav>
+=======
+<nav className="bg-[#003087] text-white py-3 shadow-md">
+  <ul className="flex justify-center gap-6 font-semibold text-sm md:text-base">
+    <li>
+      <button
+        onClick={() => router.push('/student_complaint')}
+        className="hover:underline hover:text-gray-300 transition"
+      >
+        Complaints
+      </button>
+    </li>
+    <li>
+      <button
+        onClick={() => router.push('/suggestions')}
+        className="hover:underline hover:text-gray-300 transition"
+      >
+        Suggestions
+      </button>
+    </li>
+    <li>
+      <button
+        onClick={() => router.push('/responses')}
+        className="hover:underline hover:text-gray-300 transition"
+      >
+        Responses
+      </button>
+    </li>
+    <li>
+      <button
+        onClick={() => router.push('/notifications')}
+        className="hover:underline hover:text-gray-300 transition"
+      >
+        Notifications
+      </button>
+    </li>
+    <li>
+      <button
+        onClick={handleLogout}
+        className="hover:underline hover:text-gray-300 transition"
+      >
+        Logout
+      </button>
+    </li>
+  </ul>
+</nav>
+>>>>>>> origin/manal_omran
 
       {/* Welcome Section */}
       <section className="flex-grow flex flex-col items-center justify-center text-center px-6">

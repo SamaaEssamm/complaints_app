@@ -1,38 +1,41 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 
 export default function AdminDashboard() {
   const [adminName, setAdminName] = useState('Admin');
+  const [isLoading, setIsLoading] = useState(true);
+  const router = useRouter();
+  const redirected = useRef(false); // 👈 prevent repeated redirects
 
   useEffect(() => {
-  const fetchAdminName = async () => {
     const email = localStorage.getItem('admin_email');
-    if (!email) return;
-
-    try {
-      const res = await fetch(`http://localhost:5000/api/get_admin_name?email=${email}`);
-      const data = await res.json();
-
-      if (data.status === 'success') {
-        setAdminName(data.name);
-      } else {
-        setAdminName('Admin');
+    if (!email) { 
+      if (!redirected.current) {
+        redirected.current = true;
+        router.replace('/login'); // use replace instead of push
       }
-    } catch (error) {
-      console.error('Failed to fetch admin name:', error);
-      setAdminName('Admin');
+    } else {
+      fetch(`http://localhost:5000/api/get_admin_name/${encodeURIComponent(email)}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.name) {
+            setAdminName(data.name);
+          }
+          setIsLoading(false);
+        })
+        .catch(() => {
+          setIsLoading(false);
+        });
     }
-  };
-
-  fetchAdminName();
-}, []);
-  const router = useRouter();
+  }, [router]);
 
   const handleLogout = () => {
-  localStorage.removeItem('admin_email');
-  router.push('/admin/login'); 
-   };
+    localStorage.removeItem('admin_email');
+    router.push('/login');
+  };
+
+  if (isLoading) return null;
 
   return (
     <div
@@ -51,31 +54,52 @@ export default function AdminDashboard() {
         </div>
       </header>
 
-       {/* Navigation Bar */}
-      <nav className="bg-[#003087] text-white py-3 shadow-md">
-        <ul className="flex justify-center gap-6 font-semibold text-sm md:text-base">
-          <li><a href="/students" className="hover:underline hover:text-gray-300 transition">Students</a></li>
-          <li><a href="/manage/complaints" className="hover:underline hover:text-gray-300 transition">Complaints</a></li>
-          <li><a href="/manage/suggestions" className="hover:underline hover:text-gray-300 transition">Suggestions</a></li>
-          <li><a href="/notifications" className="hover:underline hover:text-gray-300 transition">Notifications</a></li>
-          <li>
-            <button
-              onClick={handleLogout}
-              className="hover:underline hover:text-gray-300 transition"
-            >
-              Logout
-            </button>
-          </li>
-        </ul>
-      </nav>
+      {/* Navigation Bar */}
+<nav className="bg-[#003087] text-white py-3 shadow-md">
+  <ul className="flex justify-center gap-6 font-semibold text-sm md:text-base">
+    <li>
+      <button
+        onClick={() => router.push('/admin_manage_complaints')}
+        className="hover:underline hover:text-gray-300 transition"
+      >
+        Manage Complaints
+      </button>
+    </li>
+    <li>
+      <button
+        onClick={() => router.push('/admin_manage_suggestions')}
+        className="hover:underline hover:text-gray-300 transition"
+      >
+        Manage Suggestions
+      </button>
+    </li>
+    <li>
+      <button
+        onClick={() => router.push('/admin_manage_students')}
+        className="hover:underline hover:text-gray-300 transition"
+      >
+        Manage Students
+      </button>
+    </li>
+    <li>
+      <button
+        onClick={handleLogout}
+        className="hover:underline hover:text-gray-300 transition"
+      >
+        Logout
+      </button>
+    </li>
+  </ul>
+</nav>
+
 
       {/* Welcome Section */}
       <section className="flex-grow flex flex-col items-center justify-center text-center px-6">
         <h1 className="text-5xl font-extrabold text-white drop-shadow-lg mb-4">
-          Welcome, {adminName} 👨‍💼
+          Welcome, {adminName} 🧑‍💼
         </h1>
         <p className="text-xl text-white drop-shadow-md">
-          This is your admin dashboard to manage the platform efficiently
+          This is your admin dashboard to manage complaints and suggestions
         </p>
       </section>
     </div>
