@@ -1,4 +1,3 @@
-from email_utils import send_notification_email
 from flask import Flask, request, jsonify
 from flask_migrate import Migrate
 from flask_sqlalchemy import SQLAlchemy
@@ -272,31 +271,6 @@ def create_suggestion():
     db.session.add(new_suggestion)
     db.session.commit()
     return jsonify({"message": "Suggestion submitted successfully."}), 201
-
-
-    @app.route('/api/admin/respond_complaint', methods=['POST'])
-def respond_to_complaint():
-    data = request.get_json()
-    complaint_id = data.get('complaint_id')
-    response = data.get('response_message')
-
-    complaint = ComplaintModel.query.filter_by(complaint_id=complaint_id).first()
-    if not complaint:
-        return jsonify({"message": "Complaint not found"}), 404
-
-    complaint.response_message = response
-    complaint.response_created_at = db.func.now()
-    db.session.commit()
-
-    # نجيب الطالب اللي قدم الشكوى
-    student = UserModel.query.filter_by(users_id=complaint.sender_id).first()
-
-    if student:
-        # 📨 نبعته الإيميل
-        send_notification_email(student.users_email, complaint.complaint_title, response)
-
-    return jsonify({"message": "Response saved and email sent"}), 200
-
 
 if __name__ == '__main__':
     app.run(debug=True)
