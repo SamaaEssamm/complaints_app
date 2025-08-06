@@ -11,19 +11,17 @@ type suggestion = {
   suggestion_dep: string;
   suggestion_status: string;
   suggestion_date: string;
-  response_message: string | null;
   student_email: string;
 };
 
 export default function ManagesuggestionsPage() {
   const [suggestions, setsuggestions] = useState<suggestion[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedType, setSelectedType] = useState<string>('All');
-  const router = useRouter();
+const [selectedType, setSelectedType] = useState("All");
+const [selectedStatus, setSelectedStatus] = useState("All");
 
-  const filteredsuggestions = suggestions.filter(
-    (c) => selectedType === 'All' || c.suggestion_type === selectedType
-  );
+
+  const router = useRouter();
 
   useEffect(() => {
     const fetchsuggestions = async () => {
@@ -48,23 +46,42 @@ export default function ManagesuggestionsPage() {
     fetchsuggestions();
   }, []);
 
+  const filteredsuggestions = suggestions.filter((suggestion) => {
+  const typeMatch =
+    selectedType === "All" || suggestion.suggestion_type === selectedType;
+
+  const normalizedStatus = selectedStatus;
+
+
+  const statusMatch =
+    selectedStatus === "All" ||
+    suggestion.suggestion_status === normalizedStatus;
+
+  return typeMatch && statusMatch;
+});
+
+
+
+const typeLabels: { [key: string]: string } = {
+  IT: 'IT',
+  academic: 'Academic',
+  activities: 'Activities',
+  administrative: 'Administrative',
+};
+
+
   const statusLabels: { [key: string]: string } = {
-  under_checking: 'Received',
-  under_review: 'Under Review',
-  in_progress: 'In Progress',
-  done: 'Done',
+  reviewed: 'Reviewed',
+  unreviewed: 'Unreviewed',
+  
 };
 
   const getStatusColor = (status: string) => {
   switch (status) {
-    case 'under_checking':
+    case 'unreviewed':
+      return 'text-red-600';
+    case 'reviewed':
       return 'text-green-600';
-    case 'under_review':
-      return 'text-blue-600';
-    case 'in_progress':
-      return 'text-orange-600';
-    case 'done':
-      return 'text-purple-600';
     default:
       return 'text-gray-500';
   }
@@ -75,24 +92,45 @@ export default function ManagesuggestionsPage() {
     <div className="bg-white min-h-screen py-10 px-6 md:px-12 lg:px-24">
       <h1 className="text-3xl font-bold text-[#003087] mb-8">Manage suggestions</h1>
 
-      {/* Filter Dropdown */}
-      <div className="mb-6">
-        <label htmlFor="filter" className="mr-2 font-medium text-gray-700">
-          Filter by Type:
-        </label>
-        <select
-          id="filter"
-          value={selectedType}
-          onChange={(e) => setSelectedType(e.target.value)}
-          className="border border-gray-300 rounded px-3 py-1"
-        >
-          <option value="All">All</option>
-          <option value="IT">IT</option>
-          <option value="academic">Academic</option>
-          <option value="activities">Activities</option>
-          <option value="administrative">Administrative</option>
-        </select>
-      </div>
+      <div className="flex gap-4 mb-6">
+  {/* Type Filter */}
+  <div>
+    <label htmlFor="typeFilter" className="mr-2 font-medium text-gray-700">
+      Filter by Type:
+    </label>
+    <select
+      id="typeFilter"
+      value={selectedType}
+      onChange={(e) => setSelectedType(e.target.value)}
+      className="border border-gray-300 rounded px-3 py-1"
+    >
+      <option value="All">All</option>
+      <option value="IT">IT</option>
+      <option value="academic">Academic</option>
+      <option value="activities">Activities</option>
+      <option value="administrative">Administrative</option>
+    </select>
+  </div>
+
+  {/* Status Filter */}
+  <div>
+    <label htmlFor="statusFilter" className="mr-2 font-medium text-gray-700">
+      Filter by Status:
+    </label>
+    <select
+      id="statusFilter"
+      value={selectedStatus}
+      onChange={(e) => setSelectedStatus(e.target.value)}
+      className="border border-gray-300 rounded px-3 py-1"
+    >
+      <option value="All">All</option>
+      <option value="unreviewed">Unreviewed</option>
+      <option value="reviewed">Reviewed</option>
+      
+    </select>
+  </div>
+</div>
+
 
       {loading ? (
         <p>Loading suggestions...</p>
@@ -115,11 +153,10 @@ export default function ManagesuggestionsPage() {
                 <tr
                   key={c.suggestion_id}
                   className="border-t border-gray-200 hover:bg-gray-100 cursor-pointer transition"
-                  onClick={() => router.push(`/admin_suggestion/${c.suggestion_id}
-`)}
+                  onClick={() => router.push(`/admin_suggestion/${c.suggestion_id}`)}
                 >
                   <td className="px-4 py-2">{c.suggestion_title}</td>
-                  <td className="px-4 py-2">{c.suggestion_type}</td>
+                  <td className="px-4 py-2">{typeLabels[c.suggestion_type] || c.suggestion_type}</td>
                   <td className="px-4 py-2">{new Date(c.suggestion_date).toLocaleDateString()}</td>
                   <td className="px-4 py-2">
                     {c.suggestion_dep === 'public' ? c.student_email : 'Unknown'}

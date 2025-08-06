@@ -38,6 +38,10 @@ class ComplaintStatus(enum.Enum):
     in_progress    = "in_progress"
     done           = "done"
 
+class SuggestionStatus(enum.Enum):
+    reviewed = "reviewed"
+    unreviewed = "unreviewed"
+
 class SessionStatus(enum.Enum):
     open  = "open"
     close = "close"
@@ -55,6 +59,9 @@ class NotificationModel(db.Model):
     notifications_message = db.Column(db.Text, nullable=False)
     notification_created_at = db.Column(TIMESTAMP(timezone=True), server_default=db.func.now())
     notification_is_read  = db.Column(db.Boolean, default=False)
+    complaint_id = db.Column(UUID(as_uuid=True), db.ForeignKey('complaints.complaint_id'), nullable=True)
+    suggestion_id = db.Column(UUID(as_uuid=True), db.ForeignKey('suggestions.suggestion_id'), nullable=True)
+
 
 class ComplaintModel(db.Model):
     __tablename__ = "complaints"
@@ -98,6 +105,10 @@ class SuggestionModel(db.Model):
     suggestion_message   = db.Column(db.Text, nullable=False)
     suggestion_file      = db.Column(BYTEA)
     suggestion_created_at= db.Column(TIMESTAMP(timezone=True), server_default=db.func.now())
+    suggestion_status = db.Column(db.Enum(SuggestionStatus), nullable=False, default=SuggestionStatus.unreviewed)
+      
+
+
 
 class ChatMessageModel(db.Model):
     __tablename__ = "chat_messages"
@@ -224,6 +235,31 @@ def get_complaints():
 
     return jsonify(complaints_data)  # ✅ Return array of complaints
 
+@app.route("/api/student/get_complaint", methods=["GET"])
+def get_single_complaint():
+    complaint_id = request.args.get("id")
+    student_email = request.args.get("student_email")
+
+    if not complaint_id or not student_email:
+        return jsonify({"message": "Missing parameters"}), 400
+
+    user = UserModel.query.filter_by(users_email=student_email).first()
+    if not user:
+        return jsonify({"message": "Student not found"}), 404
+
+    complaint = ComplaintModel.query.filter_by(
+        complaint_id=complaint_id,
+        sender_id=user.users_id
+    ).first()
+
+    if not complaint:
+        return jsonify({"message": "Complaint not found"}), 404
+
+    data = complaint.to_dict()
+    data["complaint_status"] = complaint.complaint_status.value
+    return jsonify(data)
+
+
 @app.route('/api/student/addcomplaint', methods=['POST'])
 def create_complaint():
     data = request.get_json()
@@ -238,25 +274,26 @@ def create_complaint():
         complaint_message=data.get('complaint_message'),
         complaint_type=data.get('complaint_type'),
         complaint_dep=data.get('complaint_dep'),
-        sender_id=user.users_id  # FK relation
-    )
+        sender_id=user.users_id )
 
     db.session.add(new_complaint)
+    db.session.flush()
     #db.session.commit()
     # ➕ Add notification for admin
     admin = UserModel.query.filter_by(users_role='admin').first()
     if admin:
         notification = NotificationModel(
-            user_id=admin.users_id,
-            notifications_message=f"New complaint received from {user.users_name}."
-        )
+    user_id=admin.users_id,
+    notifications_message=f"New complaint has been received .",
+    complaint_id=new_complaint.complaint_id  )
+
         db.session.add(notification)
      # ➕ Add notification for student
     student_notification = NotificationModel(
-        user_id=user.users_id,
-        notifications_message="Your complaint has been received and is pending review.",
-        #complaint_id=new_complaint.complaint_id  # لو حابة توصليه بالشكوى
-    )
+    user_id=user.users_id,
+    notifications_message="Your complaint has been received and is pending review.",
+    complaint_id=new_complaint.complaint_id  )
+
     db.session.add(student_notification)
     db.session.commit()
 
@@ -278,8 +315,8 @@ def get_suggestions():
         {
             "suggestion_id": str(s.suggestion_id),
             "user_id": str(s.users_id),
-            "suggestion_type": s.suggestion_type.name if s.suggestion_type else None,
-            "suggestion_dep": s.suggestion_dep.name if s.suggestion_dep else None,
+            "suggestion_dep": s.suggestion_dep.value if s.suggestion_dep else None,
+            "suggestion_type": s.suggestion_type.value if s.suggestion_type else None,
             "suggestion_title": s.suggestion_title,
             "suggestion_message": s.suggestion_message,
             "suggestion_created_at": s.suggestion_created_at.isoformat() if s.suggestion_created_at else None
@@ -288,6 +325,35 @@ def get_suggestions():
     ]
     return jsonify(suggestions_data), 200
 
+@app.route("/api/student/getsuggestion", methods=["GET"])
+def get_student_suggestion():
+    suggestion_id = request.args.get("id")
+    student_email = request.args.get("student_email")
+
+    if not suggestion_id or not student_email:
+        return jsonify({"message": "Missing parameters"}), 400
+
+    user = UserModel.query.filter_by(users_email=student_email).first()
+    if not user:
+        return jsonify({"message": "Student not found"}), 404
+
+    suggestion = SuggestionModel.query.filter_by(
+        suggestion_id=suggestion_id,
+        users_id=user.users_id
+    ).first()
+
+    if not suggestion:
+        return jsonify({"message": "Suggestion not found"}), 404
+
+    return jsonify({
+        "suggestion_id": str(suggestion.suggestion_id),
+        "user_id": str(suggestion.users_id),
+        "suggestion_type": suggestion.suggestion_type.value if suggestion.suggestion_type else None,
+        "suggestion_dep": suggestion.suggestion_dep.value if suggestion.suggestion_dep else None,
+        "suggestion_title": suggestion.suggestion_title,
+        "suggestion_message": suggestion.suggestion_message,
+        "suggestion_created_at": suggestion.suggestion_created_at.isoformat() if suggestion.suggestion_created_at else None
+    }), 200
 
 @app.route('/api/student/addsuggestion', methods=['POST'])
 def create_suggestion():
@@ -305,6 +371,23 @@ def create_suggestion():
         users_id=user.users_id
     )
     db.session.add(new_suggestion)
+    db.session.flush()
+     # ➕ إشعار للإدمن
+    admin = UserModel.query.filter_by(users_role='admin').first()
+    if admin:
+        admin_notification = NotificationModel(
+            user_id=admin.users_id,
+            notifications_message=f" New suggestion has been received",
+            suggestion_id=new_suggestion.suggestion_id
+        )
+        db.session.add(admin_notification)
+
+    # ➕ إشعار للطالب
+    student_notification = NotificationModel(
+        user_id=user.users_id,
+        notifications_message="Your suggestion has been received. Thank you for sharing your thoughts!",
+    )
+    db.session.add(student_notification)
     db.session.commit()
     return jsonify({"message": "Suggestion submitted successfully."}), 201
 
@@ -477,7 +560,8 @@ def get_all_suggestions():
 
     for s in suggestions:
         student = UserModel.query.filter_by(users_id=s.users_id).first()
-        student_email = student.users_email if student and s.suggestion_dep == 'public' else 'Unknown'
+        student_email = student.users_email if student and s.suggestion_dep.value == 'public' else 'Unknown'
+
 
         results.append({
             'suggestion_id': s.suggestion_id,
@@ -486,7 +570,9 @@ def get_all_suggestions():
             'suggestion_type': str(s.suggestion_type.value),
             'suggestion_dep': str(s.suggestion_dep.value),
             'suggestion_date': s.suggestion_created_at.strftime("%Y-%m-%d"),
-            'student_email': student_email
+            'student_email': student_email ,
+            'suggestion_status': str(s.suggestion_status.value),
+
         })
 
     return jsonify(results)
@@ -500,14 +586,15 @@ def get_suggestion_by_id():
 
     try:
         uuid_obj = uuid.UUID(suggestion_id)
-        suggestion = suggestionModel.query.filter_by(suggestion_id=uuid_obj).first()
+        suggestion = SuggestionModel.query.filter_by(suggestion_id=uuid_obj).first()
     except ValueError:
         return jsonify({'status': 'fail', 'message': 'Invalid UUID format'}), 400
 
     if not suggestion:
         return jsonify({'status': 'fail', 'message': 'suggestion not found'}), 404
 
-    student = UserModel.query.filter_by(users_id=suggestion.sender_id).first()
+    student = UserModel.query.filter_by(users_id=suggestion.users_id).first()
+
 
     return jsonify({
         'suggestion_id': str(suggestion.suggestion_id),
@@ -515,13 +602,31 @@ def get_suggestion_by_id():
         'suggestion_message': suggestion.suggestion_message,
         'suggestion_type': str(suggestion.suggestion_type.name),
         'suggestion_dep': str(suggestion.suggestion_dep),
-        'suggestion_status': str(suggestion.suggestion_status.name),
         'suggestion_date': suggestion.suggestion_created_at,
-        'response_message': suggestion.response_message,
         'student_email': student.users_email if student and suggestion.suggestion_dep.name == "public" else "Unknown",
+        'suggestion_status': str(suggestion.suggestion_status.value),
+        'suggestion_status': str(suggestion.suggestion_status.value),
+
     })
 
 
+@app.route('/api/admin/update_suggestion_status', methods=['POST', 'OPTIONS'])
+def update_suggestion_status():
+    if request.method == 'OPTIONS':
+        return '', 204  # مهم علشان يرد على الـ preflight
+
+    data = request.get_json()
+    suggestion_id = data.get("suggestion_id")
+    new_status = data.get("new_status")
+
+    suggestion = SuggestionModel.query.filter_by(suggestion_id=suggestion_id).first()
+    if not suggestion:
+        return jsonify({"status": "error", "message": "Suggestion not found"}), 404
+
+    suggestion.suggestion_status = new_status
+    db.session.commit()
+
+    return jsonify({"status": "success", "message": "Status updated successfully"})
 
 @app.route('/api/admin/update_status', methods=['POST'])
 def update_status():
@@ -564,16 +669,17 @@ def respond_to_complaint():
 
     if complaint and not complaint.response_message:
         complaint.response_message = response_message
-<<<<<<< HEAD
+
         complaint.responder_id = admin_id  # <-- You must have this column in the model
 
         # 🆕 Send notification to student
         student_id = complaint.sender_id
         notification = NotificationModel(
-            user_id=student_id,
-            notifications_message="Your complaint has been answered. Click to view.",
-            #complaint_id=complaint.complaint_id  # رابط الشكوى
-        )
+        user_id=student_id,
+        notifications_message="Your complaint has been answered. Click to view.",
+        complaint_id=complaint.complaint_id  # ✅ لازم يتحط علشان يحصل توجيه
+    )
+
         db.session.add(notification)
         """
         error in merge
@@ -599,7 +705,7 @@ def get_admin_id():
     else:
         return jsonify({'status': 'fail', 'reason': 'Admin not found'})
 
-<<<<<<< HEAD
+
 @app.route('/api/admin/notifications', methods=['GET'])
 def get_admin_notifications():
     email = request.args.get("admin_email")
@@ -615,7 +721,8 @@ def get_admin_notifications():
             "message": n.notifications_message,
             "is_read": n.notification_is_read,
             "created_at": n.notification_created_at.isoformat(),
-            #"complaint_id": str(n.complaint_id) if n.complaint_id else None
+            "complaint_id": str(n.complaint_id) if n.complaint_id else None,
+            "suggestion_id": str(n.suggestion_id) if n.suggestion_id else None
         }
         for n in notifications
     ])
@@ -648,7 +755,8 @@ def get_student_notifications():
             "message": n.notifications_message,
             "is_read": n.notification_is_read,
             "created_at": n.notification_created_at.isoformat(),
-            "complaint_id": str(n.complaint_id) if hasattr(n, 'complaint_id') and n.complaint_id else None
+            "complaint_id": str(n.complaint_id) if hasattr(n, 'complaint_id') and n.complaint_id else None,
+            "suggestion_id": str(n.suggestion_id) if hasattr(n, 'suggestion_id') and n.suggestion_id else None
         }
         for n in notifications
     ])
@@ -665,8 +773,7 @@ def mark_student_notification_read():
     notification.notification_is_read = True
     db.session.commit()
     return jsonify({"status": "success"})
-=======
->>>>>>> b1b7246f2771cf90cee41de449e6f01187404d33
+
 
 if __name__ == '__main__':
     app.run(debug=True)

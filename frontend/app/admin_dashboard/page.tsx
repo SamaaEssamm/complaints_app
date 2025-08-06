@@ -27,7 +27,8 @@ export default function AdminDashboard() {
 
   // توجيه للشكوى
   if (notification.complaint_id) {
-    router.push(`/admin_complaint_details?id=${notification.complaint_id}`);
+    router.push(`/admin_complaint/${notification.complaint_id}}`);
+
   }
 };
 
@@ -37,6 +38,7 @@ type Notification = {
   is_read: boolean;
   created_at: string;
   complaint_id?: string;
+  suggestion_id? : string;
 };
 
 //noti useeffect 
@@ -89,9 +91,7 @@ useEffect(() => {
 
   return (
     <div
-      className="min-h-screen bg-cover bg-center text-[#003087] flex flex-col"
-      style={{ backgroundImage: "url('/home1-ar-lzneos.jpg')" }}
-    >
+      className="min-h-screen bg-cover bg-center text-[#003087] flex flex-col">
       {/* Header */}
       <header className="w-full flex justify-between items-center px-10 py-4 bg-transparent shadow-none">
         <div className="flex flex-col items-center">
@@ -157,13 +157,24 @@ useEffect(() => {
   <div
   key={i}
   onClick={async () => {
-    await fetch('http://localhost:5000/api/admin/mark_notification_read', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ notification_id: n.id }),
-    });
-    router.push('/admin_manage_complaints');
-  }}
+  await fetch('http://localhost:5000/api/admin/mark_notification_read', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ notification_id: n.id }),
+  });
+
+  // تأكدي إن فيه ID صالح قبل ما تعملي push
+  if (n.suggestion_id) {
+    router.push(`/admin_suggestion/${n.suggestion_id}`);
+  } else if (n.complaint_id) {
+    router.push(`/admin_complaint/${n.complaint_id}`);
+
+  } else {
+    console.warn("No valid ID in this notification");
+  }
+}}
+
+
   className={`mb-3 border-b pb-2 cursor-pointer p-2 rounded transition ${
     n.is_read ? 'bg-gray-100 text-gray-500' : 'bg-blue-100 text-black font-semibold'
   } hover:bg-gray-200`}
@@ -204,7 +215,10 @@ useEffect(() => {
 
 
       {/* Welcome Section */}
-      <section className="flex-grow flex flex-col items-center justify-center text-center px-6">
+       <section
+    className="flex-grow flex flex-col items-center justify-center text-center px-6"
+    style={{ backgroundImage: "url('/home1-ar-lzneos.jpg')", backgroundSize: 'cover', backgroundPosition: 'center' }}
+  >
         <h1 className="text-5xl font-extrabold text-white drop-shadow-lg mb-4">
           Welcome, {adminName} 🧑‍💼
         </h1>

@@ -75,23 +75,25 @@ export default function SuggestionsPage() {
                                 <th className="px-4 py-3 font-medium text-gray-700">Type</th>
                                 <th className="px-4 py-3 font-medium text-gray-700">Department</th>
                                 <th className="px-4 py-3 font-medium text-gray-700">Date</th>
-                                <th className="px-4 py-3 font-medium text-gray-700">Status</th>
+
                             </tr>
                         </thead>
                         <tbody>
                             {suggestions.map((s) => (
-                                <tr key={s.suggestion_id} className="border-t border-gray-200">
+                                <tr
+                                    key={s.suggestion_id}
+                                    className="cursor-pointer hover:bg-gray-100 transition border-t border-gray-200"
+                                    onClick={() => router.push(`/student_suggestions/${s.suggestion_id}`)} // ✅ هنا
+                                >
                                     <td className="px-4 py-2">{s.suggestion_title}</td>
                                     <td className="px-4 py-2 capitalize">{s.suggestion_type}</td>
                                     <td className="px-4 py-2 capitalize">{s.suggestion_dep}</td>
                                     <td className="px-4 py-2">
-                                        {new Date(s.suggestion_created_at).toLocaleDateString()}
-                                    </td>
-                                    <td className="px-4 py-2">
-                                        <span className="text-yellow-600 font-medium">Pending</span>
+                                    {new Date(s.suggestion_created_at).toLocaleDateString()}
                                     </td>
                                 </tr>
-                            ))}
+                                ))}
+
                         </tbody>
                     </table>
                 </div>

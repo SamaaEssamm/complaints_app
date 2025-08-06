@@ -21,59 +21,61 @@ export default function ComplaintsPage() {
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
-  useEffect(() => {
-  const fetchData = async () => {
-    try {
-      const email = localStorage.getItem("student_email");
-      console.log("Email from localStorage:", email);
-
-      if (!email) {
-        console.warn("No email found in localStorage");
-        return;
-      }
-
-      const res = await fetch(`http://127.0.0.1:5000/api/student/showcomplaints?student_email=${email}`);
-      const data = await res.json();
-      console.log("Fetched complaints:", data);
-
-      
-
-      if (Array.isArray(data)) {
-  // Case 1: backend directly returned an array
-     setComplaints(data);
-} else if (Array.isArray(data.complaints)) {
-  // Case 2: complaints are wrapped inside a "complaints" key
-  setComplaints(data.complaints);
-} else {
-  // Case 3: no complaints or wrong shape
-  console.warn("No complaints or unexpected response:", data);
-  setComplaints([]);
-}
-    } catch (error) {
-      console.error("Error fetching complaints:", error);
-    } finally {
-      setLoading(false);
-    }
+  const statusMap: Record<string, { label: string; color: string }> = {
+    under_checking: { label: 'Received', color: 'text-blue-600' },
+    under_review: { label: 'Under Review', color: 'text-purple-600' },
+    in_progress: { label: 'In Progress', color: 'text-green-600' },
+    done: { label: 'Responded', color: 'text-gray-600' },
   };
 
-  fetchData(); // ✅ call it inside the useEffect
-}, []);
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const email = localStorage.getItem("student_email");
+        console.log("Email from localStorage:", email);
 
+        if (!email) {
+          console.warn("No email found in localStorage");
+          return;
+        }
+
+        const res = await fetch(`http://127.0.0.1:5000/api/student/showcomplaints?student_email=${email}`);
+        const data = await res.json();
+        console.log("Fetched complaints:", data);
+
+        if (Array.isArray(data)) {
+          setComplaints(data);
+        } else if (Array.isArray(data.complaints)) {
+          setComplaints(data.complaints);
+        } else {
+          console.warn("No complaints or unexpected response:", data);
+          setComplaints([]);
+        }
+      } catch (error) {
+        console.error("Error fetching complaints:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
 
   const handleAddComplaint = () => {
     router.push('/student_complaint_add');
   };
-function formatDate(dateStr: string | null | undefined) {
-  if (!dateStr) return 'Unknown';
-  const parsed = new Date(dateStr);
-  return isNaN(parsed.getTime())
-    ? 'Invalid Date'
-    : parsed.toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-      });
-}
+
+  function formatDate(dateStr: string | null | undefined) {
+    if (!dateStr) return 'Unknown';
+    const parsed = new Date(dateStr);
+    return isNaN(parsed.getTime())
+      ? 'Invalid Date'
+      : parsed.toLocaleDateString('en-US', {
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric',
+        });
+  }
 
   return (
     <main className="bg-white min-h-screen py-10 px-6 md:px-12 lg:px-24">
@@ -104,29 +106,32 @@ function formatDate(dateStr: string | null | undefined) {
               </tr>
             </thead>
             <tbody>
-              {complaints.map((c) => (
-                <tr key={c.complaint_id} className="border-t border-gray-200">
-                  <td className="px-4 py-2">{c.complaint_title}</td>
-                  <td className="px-4 py-2 capitalize">{c.complaint_type}</td>
-                  <td className="px-4 py-2 capitalize">{c.complaint_dep}</td>
-                  <td className="px-4 py-2">{formatDate(c.complaint_created_at)}</td>
+              {complaints.map((c) => {
+                console.log("Complaint Status:", c.complaint_status, typeof c.complaint_status);
 
-                  <td className="px-4 py-2 capitalize">
-                    {c.complaint_status === "under_checking" && (
-                      <span className="text-blue-600 font-medium">Recieved</span>
-                    )}
-                    {c.complaint_status === "under_review" && (
-                      <span className="text-purple-600 font-medium">Under Review</span>
-                    )}
-                    {c.complaint_status === "in_progress" && (
-                      <span className="text-green-600 font-medium">In Progress</span>
-                    )}
-                    {c.complaint_status === "done" && (
-                      <span className="text-gray-600 font-medium">Responded</span>
-                    )}
-                  </td>
-                </tr>
-              ))}
+
+                return (
+                  <tr
+                    key={c.complaint_id}
+                    onClick={() => router.push(`/student_complaint/${c.complaint_id}`)}
+                    className="cursor-pointer hover:bg-gray-100 transition"
+                  >
+                    <td className="px-4 py-2">{c.complaint_title}</td>
+                    <td className="px-4 py-2 capitalize">{c.complaint_type}</td>
+                    <td className="px-4 py-2 capitalize">{c.complaint_dep}</td>
+                    <td className="px-4 py-2">{formatDate(c.complaint_created_at)}</td>
+                    <td className="px-4 py-2 capitalize">
+                      {statusMap[c.complaint_status] ? (
+                        <span className={`${statusMap[c.complaint_status].color} font-medium`}>
+                          {statusMap[c.complaint_status].label}
+                        </span>
+                      ) : (
+                        <span className="text-red-600 font-medium">Unknown</span>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

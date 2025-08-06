@@ -25,7 +25,7 @@ export default function Dashboard() {
     });
   }
 
-<<<<<<< HEAD
+
   // توجيه للشكوى
   if (notification.complaint_id) {
     router.push(`/student_complaint_details?id=${notification.complaint_id}`);
@@ -38,6 +38,7 @@ type Notification = {
   is_read: boolean;
   created_at: string;
   complaint_id?: string;
+  suggestion_id?: string;
 };
 
 //noti useeffect 
@@ -74,53 +75,7 @@ useEffect(() => {
   }
 }, [router]);
 
-
- useEffect(() => {
-  const email = localStorage.getItem('student_email');
-  if (!email) {
-    router.push('/login');
-  } else {
-    // Fetch the real name from the backend using the email
-    fetch(`http://localhost:5000/api/student/${encodeURIComponent(email)}`)
-      .then(res => res.json())
-      .then(data => {
-        if (data.name) {
-          setStudentName(data.name);
-        } else {
-          setStudentName('Student'); // fallback
-        }
-        setIsLoading(false);
-      })
-      .catch(() => {
-        setStudentName('Student');
-        setIsLoading(false);
-      });
-  }
-}, [router]);
-=======
-  useEffect(() => {
-    const email = localStorage.getItem('student_email');
-    if (!email) {
-      router.push('/login');
-    } else {
-      // Fetch the real name from the backend using the email
-      fetch(`http://localhost:5000/api/student/${encodeURIComponent(email)}`)
-        .then(res => res.json())
-        .then(data => {
-          if (data.name) {
-            setStudentName(data.name);
-          } else {
-            setStudentName('Student'); // fallback
-          }
-          setIsLoading(false);
-        })
-        .catch(() => {
-          setStudentName('Student');
-          setIsLoading(false);
-        });
-    }
-  }, [router]);
->>>>>>> b1b7246f2771cf90cee41de449e6f01187404d33
+ 
 
 
   const handleLogout = () => {
@@ -160,17 +115,11 @@ useEffect(() => {
         onClick={() => router.push('/student_suggestions')}
         className="hover:underline hover:text-gray-300 transition"
       >
+       
         Suggestions
       </button>
     </li>
-    <li>
-      <button
-        onClick={() => router.push('/responses')}
-        className="hover:underline hover:text-gray-300 transition"
-      >
-        Responses
-      </button>
-    </li>
+  
     <li className="relative">
   <button
     onClick={() => setShowNotifications(!showNotifications)}
@@ -196,13 +145,21 @@ useEffect(() => {
   <div
   key={i}
   onClick={async () => {
-    await fetch('http://localhost:5000/api/admin/mark_notification_read', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ notification_id: n.id }),
-    });
-    router.push('/student_complaint');
-  }}
+  await fetch('http://localhost:5000/api/student/mark_notification_read', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ notification_id: n.id }),
+  });
+
+  if (n.complaint_id) {
+    router.push(`/student_complaint/${n.complaint_id}`);
+  } else if (n.suggestion_id) {
+    router.push(`/student_suggestions/${n.suggestion_id}`);
+  } else {
+    console.warn('No related ID found for notification:', n);
+  }
+}}
+
   className={`mb-3 border-b pb-2 cursor-pointer p-2 rounded transition ${
     n.is_read ? 'bg-gray-100 text-gray-500' : 'bg-blue-100 text-black font-semibold'
   } hover:bg-gray-200`}
