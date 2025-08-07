@@ -4,6 +4,7 @@ from flask_migrate import Migrate
 from flask_sqlalchemy import SQLAlchemy
 import enum
 import uuid
+import base64
 from sqlalchemy.dialects.postgresql import UUID, ENUM, BYTEA, TIMESTAMP
 from flask_restful import Resource, Api, reqparse, fields, marshal_with, abort
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -104,6 +105,7 @@ class SuggestionModel(db.Model):
     suggestion_title     = db.Column(db.String(100))
     suggestion_message   = db.Column(db.Text, nullable=False)
     suggestion_file      = db.Column(BYTEA)
+    suggestion_file_name = db.Column(db.String(255)) 
     suggestion_created_at= db.Column(TIMESTAMP(timezone=True), server_default=db.func.now())
     suggestion_status = db.Column(db.Enum(SuggestionStatus), nullable=False, default=SuggestionStatus.unreviewed)
       
@@ -325,6 +327,7 @@ def get_suggestions():
     ]
     return jsonify(suggestions_data), 200
 
+
 @app.route("/api/student/getsuggestion", methods=["GET"])
 def get_student_suggestion():
     suggestion_id = request.args.get("id")
@@ -345,6 +348,14 @@ def get_student_suggestion():
     if not suggestion:
         return jsonify({"message": "Suggestion not found"}), 404
 
+    # تحويل الفايل إلى base64
+    file_data_base64 = None
+    file_type = None
+
+    if suggestion.suggestion_file:
+        file_data_base64 = base64.b64encode(suggestion.suggestion_file).decode('utf-8')
+        file_type = "image/png"  # تقدر تعملي نظام يحدد النوع الحقيقي لاحقًا
+
     return jsonify({
         "suggestion_id": str(suggestion.suggestion_id),
         "user_id": str(suggestion.users_id),
@@ -352,42 +363,62 @@ def get_student_suggestion():
         "suggestion_dep": suggestion.suggestion_dep.value if suggestion.suggestion_dep else None,
         "suggestion_title": suggestion.suggestion_title,
         "suggestion_message": suggestion.suggestion_message,
-        "suggestion_created_at": suggestion.suggestion_created_at.isoformat() if suggestion.suggestion_created_at else None
+        "suggestion_created_at": suggestion.suggestion_created_at.isoformat() if suggestion.suggestion_created_at else None,
+        "suggestion_file": file_data_base64,
+        "suggestion_file_type": file_type,
+        "suggestion_file_name": suggestion.suggestion_file_name,  # if you store it in the DB
+
     }), 200
+
 
 @app.route('/api/student/addsuggestion', methods=['POST'])
 def create_suggestion():
-    data = request.get_json()
-    email = data.get('student_email')
+    # البيانات بتيجي من form-data
+    email = request.form.get('student_email')
     user = UserModel.query.filter_by(users_email=email).first()
     if not user:
         return jsonify({"message": "User not found"}), 404
 
+    # قراءة الحقول النصية
+    title = request.form.get('suggestion_title')
+    message = request.form.get('suggestion_message')
+    suggestion_type = request.form.get('suggestion_type')
+    suggestion_dep = request.form.get('suggestion_dep')
+
+    # قراءة الملف
+    file = request.files.get('file')
+    file_data = file.read() if file else None
+
     new_suggestion = SuggestionModel(
-        suggestion_title=data.get('suggestion_title'),
-        suggestion_message=data.get('suggestion_message'),
-        suggestion_type=data.get('suggestion_type'),
-        suggestion_dep=data.get('suggestion_dep'),
-        users_id=user.users_id
+        suggestion_title=title,
+        suggestion_message=message,
+        suggestion_type=suggestion_type,
+        suggestion_dep=suggestion_dep,
+        users_id=user.users_id,
+        suggestion_file=file_data  # نحط الباينري داتا هنا
     )
+
     db.session.add(new_suggestion)
     db.session.flush()
-     # ➕ إشعار للإدمن
+
+    # إشعار الإدمن
     admin = UserModel.query.filter_by(users_role='admin').first()
     if admin:
         admin_notification = NotificationModel(
             user_id=admin.users_id,
-            notifications_message=f" New suggestion has been received",
+            notifications_message=f"New suggestion has been received",
             suggestion_id=new_suggestion.suggestion_id
         )
         db.session.add(admin_notification)
 
-    # ➕ إشعار للطالب
+    # إشعار الطالب
     student_notification = NotificationModel(
         user_id=user.users_id,
         notifications_message="Your suggestion has been received. Thank you for sharing your thoughts!",
+        suggestion_id=new_suggestion.suggestion_id
     )
     db.session.add(student_notification)
+
     db.session.commit()
     return jsonify({"message": "Suggestion submitted successfully."}), 201
 
@@ -755,8 +786,8 @@ def get_student_notifications():
             "message": n.notifications_message,
             "is_read": n.notification_is_read,
             "created_at": n.notification_created_at.isoformat(),
-            "complaint_id": str(n.complaint_id) if hasattr(n, 'complaint_id') and n.complaint_id else None,
-            "suggestion_id": str(n.suggestion_id) if hasattr(n, 'suggestion_id') and n.suggestion_id else None
+            "complaint_id": str(n.complaint_id) if n.complaint_id else None,
+            "suggestion_id": str(n.suggestion_id) if n.suggestion_id else None
         }
         for n in notifications
     ])

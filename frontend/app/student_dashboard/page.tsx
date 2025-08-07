@@ -151,12 +151,14 @@ useEffect(() => {
     body: JSON.stringify({ notification_id: n.id }),
   });
 
-  if (n.complaint_id) {
-    router.push(`/student_complaint/${n.complaint_id}`);
-  } else if (n.suggestion_id) {
+  // تأكدي إن فيه ID صالح قبل ما تعملي push
+  if (n.suggestion_id) {
     router.push(`/student_suggestions/${n.suggestion_id}`);
+  } else if (n.complaint_id) {
+    router.push(`/student_complaint/${n.complaint_id}`);
+
   } else {
-    console.warn('No related ID found for notification:', n);
+    console.warn("No valid ID in this notification");
   }
 }}
 

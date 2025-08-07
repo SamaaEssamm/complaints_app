@@ -45,15 +45,13 @@ export default function SuggestionDetailsPage() {
         <p>
           <span className="font-semibold">Date:</span>{' '}
           {suggestion.suggestion_created_at
-  ? new Date(suggestion.suggestion_created_at).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    })
-  : 'Unknown'}
-
+            ? new Date(suggestion.suggestion_created_at).toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+              })
+            : 'Unknown'}
         </p>
-        
 
         <div className="mt-4">
           <span className="font-semibold block mb-1">Message:</span>
@@ -61,6 +59,48 @@ export default function SuggestionDetailsPage() {
             {suggestion.suggestion_message}
           </div>
         </div>
+
+        {suggestion.suggestion_file && (
+          <div className="mt-6">
+            <span className="font-semibold block mb-1">Attached File:</span>
+
+            {suggestion.suggestion_file_type?.startsWith('image/') ? (
+              <div>
+                <img
+                  src={`data:${suggestion.suggestion_file_type};base64,${suggestion.suggestion_file}`}
+                  alt={suggestion.suggestion_file_name || "Attached image"}
+                  className="max-w-full max-h-[400px] rounded border"
+                />
+                {suggestion.suggestion_file_name && (
+                  <input
+                    type="text"
+                    value={suggestion.suggestion_file_name}
+                    readOnly
+                    className="mt-2 border px-3 py-1 rounded bg-gray-100 w-full"
+                  />
+                )}
+              </div>
+            ) : (
+              <div>
+                <a
+                  href={`data:${suggestion.suggestion_file_type};base64,${suggestion.suggestion_file}`}
+                  download={suggestion.suggestion_file_name || "attachment"}
+                  className="text-blue-600 underline"
+                >
+                  {suggestion.suggestion_file_name || "Download file"}
+                </a>
+                {suggestion.suggestion_file_name && (
+                  <input
+                    type="text"
+                    value={suggestion.suggestion_file_name}
+                    readOnly
+                    className="mt-2 border px-3 py-1 rounded bg-gray-100 w-full"
+                  />
+                )}
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

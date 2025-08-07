@@ -1,11 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 
 export default function NewSuggestionPage() {
     const router = useRouter();
-
+    const fileInputRef = useRef<HTMLInputElement | null>(null);
     const [formData, setFormData] = useState({
         title: '',
         message: '',
@@ -28,19 +28,24 @@ export default function NewSuggestionPage() {
         }
 
         try {
+            const file = fileInputRef.current?.files?.[0] || null;
+
+            const data = new FormData();
+            data.append('student_email', student_email);
+            data.append('suggestion_title', formData.title);
+            data.append('suggestion_message', formData.message);
+            data.append('suggestion_type', formData.type);
+            data.append('suggestion_dep', formData.dep);
+
+            if (file) {
+                data.append('file', file); // ده الفايل اللي هيترفع
+            }
+
             const res = await fetch('http://127.0.0.1:5000/api/student/addsuggestion', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    student_email,
-                    suggestion_title: formData.title,
-                    suggestion_message: formData.message,
-                    suggestion_type: formData.type,
-                    suggestion_dep: formData.dep,
-                }),
+                body: data,
             });
+
 
             if (res.ok) {
                 router.push('/student_suggestions');
@@ -58,7 +63,8 @@ export default function NewSuggestionPage() {
         <main className="bg-white min-h-screen py-10 px-6 md:px-12 lg:px-24">
             <h1 className="text-3xl font-bold text-[#003087] mb-8">Submit a Suggestion</h1>
 
-            <form onSubmit={handleSubmit} className="space-y-6 max-w-2xl">
+            <form onSubmit={handleSubmit} className="space-y-6 max-w-2xl" encType="multipart/form-data">
+
                 <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Title</label>
                     <input
@@ -82,6 +88,16 @@ export default function NewSuggestionPage() {
                         className="w-full border border-gray-300 rounded-xl px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#003087]"
                     />
                 </div>
+                <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Attachment (Optional)</label>
+                    <input
+                        type="file"
+                        name="file"
+                        ref={fileInputRef}
+                        className="w-full border border-gray-300 rounded-xl px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#003087]"
+                    />
+                    </div>
+
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
