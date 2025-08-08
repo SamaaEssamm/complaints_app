@@ -2,6 +2,7 @@ from flask import Flask
 from flask import request, jsonify
 from flask_migrate import Migrate
 from flask_sqlalchemy import SQLAlchemy
+import os
 import enum
 import uuid
 import base64
@@ -10,13 +11,27 @@ from flask_restful import Resource, Api, reqparse, fields, marshal_with, abort
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_cors import CORS
 from datetime import datetime, timezone
+from werkzeug.utils import secure_filename
+from flask import send_from_directory
 
-app = Flask(__name__)
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+app = Flask(__name__, static_folder='static')
 app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://sama:1234@localhost:5432/complaints_db'
 db = SQLAlchemy(app)
 migrate = Migrate(app, db)
 api = Api(app)
 CORS(app)
+
+SUGGESTION_UPLOAD_FOLDER = os.path.join(app.root_path, 'static/uploads/suggestions')
+COMPLAINT_UPLOAD_FOLDER = os.path.join(app.root_path, 'static/uploads/complaints')
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'pdf', 'docx'}
+
+
+app.config['SUGGESTION_UPLOAD_FOLDER'] = os.path.join(app.root_path, 'static/uploads/suggestions')
+app.config['COMPLAINT_UPLOAD_FOLDER'] = os.path.join(app.root_path, 'static/uploads/complaints')
+
 
 #app models
 class UserRole(enum.Enum):
@@ -74,7 +89,8 @@ class ComplaintModel(db.Model):
     complaint_status   = db.Column(ENUM(ComplaintStatus), nullable=False, default=ComplaintStatus.under_checking)
     complaint_title    = db.Column(db.String(100))
     complaint_message  = db.Column(db.Text, nullable=False)
-    complaint_file     = db.Column(BYTEA)
+    complaint_file_url = db.Column(db.String(255))  # المسار النسبي أو الكامل للفايل
+    complaint_file_name = db.Column(db.String(255))  # الاسم الأصلي
     complaint_created_at= db.Column(TIMESTAMP(timezone=True), server_default=db.func.now())
     responder_id       = db.Column(UUID(as_uuid=True), db.ForeignKey("users.users_id", ondelete="SET NULL"))
     response_message   = db.Column(db.Text)
@@ -89,11 +105,14 @@ class ComplaintModel(db.Model):
         "complaint_status": self.complaint_status.name if self.complaint_status else None,
         "complaint_title": self.complaint_title,
         "complaint_message": self.complaint_message,
+        "complaint_file_url": self.complaint_file_url,
+        "complaint_file_name": self.complaint_file_name,
         "complaint_created_at": self.complaint_created_at.isoformat() if self.complaint_created_at else None,
         "responder_id": str(self.responder_id) if self.responder_id else None,
         "response_message": self.response_message if self.response_message else None,
         "response_created_at": self.response_created_at.isoformat() if self.response_created_at else None,
         }
+
 
 class SuggestionModel(db.Model):
     __tablename__ = "suggestions"
@@ -104,8 +123,8 @@ class SuggestionModel(db.Model):
     suggestion_dep       = db.Column(ENUM(ComplaintDep), nullable=False, default=ComplaintDep.private)
     suggestion_title     = db.Column(db.String(100))
     suggestion_message   = db.Column(db.Text, nullable=False)
-    suggestion_file      = db.Column(BYTEA)
-    suggestion_file_name = db.Column(db.String(255)) 
+    suggestion_file_url = db.Column(db.String(255))  # المسار النسبي أو الكامل للفايل
+    suggestion_file_name = db.Column(db.String(255))  # الاسم الأصلي
     suggestion_created_at= db.Column(TIMESTAMP(timezone=True), server_default=db.func.now())
     suggestion_status = db.Column(db.Enum(SuggestionStatus), nullable=False, default=SuggestionStatus.unreviewed)
       
@@ -264,43 +283,67 @@ def get_single_complaint():
 
 @app.route('/api/student/addcomplaint', methods=['POST'])
 def create_complaint():
-    data = request.get_json()
-    email = data.get('student_email')
-
+    email = request.form.get('student_email')
     user = UserModel.query.filter_by(users_email=email).first()
     if not user:
         return jsonify({"message": "User not found"}), 404
 
+    # بيانات الشكوى
+    complaint_title = request.form.get('complaint_title')
+    complaint_message = request.form.get('complaint_message')
+    complaint_type = request.form.get('complaint_type')
+    complaint_dep = request.form.get('complaint_dep')
+
+    # تجهيز بيانات الملف
+    file_url = None
+    file_name = None
+    file = request.files.get('file')  # ← لازم الاسم يكون مطابق في الفورم
+
+    if file:
+        filename = secure_filename(file.filename)
+        file_path = app.config['COMPLAINT_UPLOAD_FOLDER']
+        os.makedirs(file_path, exist_ok=True)
+        full_path = os.path.join(file_path, filename)
+        file.save(full_path)
+
+        file_url = f"http://localhost:5000/static/uploads/complaints/{filename}"
+        file_name = filename
+
+
+    # إنشاء الشكوى
     new_complaint = ComplaintModel(
-        complaint_title=data.get('complaint_title'),
-        complaint_message=data.get('complaint_message'),
-        complaint_type=data.get('complaint_type'),
-        complaint_dep=data.get('complaint_dep'),
-        sender_id=user.users_id )
+        complaint_title=complaint_title,
+        complaint_message=complaint_message,
+        complaint_type=complaint_type,
+        complaint_dep=complaint_dep,
+        sender_id=user.users_id,
+        complaint_file_url=file_url,
+        complaint_file_name=file_name
+    )
 
     db.session.add(new_complaint)
     db.session.flush()
-    #db.session.commit()
-    # ➕ Add notification for admin
+
+    # إشعارات
     admin = UserModel.query.filter_by(users_role='admin').first()
     if admin:
         notification = NotificationModel(
-    user_id=admin.users_id,
-    notifications_message=f"New complaint has been received .",
-    complaint_id=new_complaint.complaint_id  )
-
+            user_id=admin.users_id,
+            notifications_message=f"New complaint has been received.",
+            complaint_id=new_complaint.complaint_id
+        )
         db.session.add(notification)
-     # ➕ Add notification for student
-    student_notification = NotificationModel(
-    user_id=user.users_id,
-    notifications_message="Your complaint has been received and is pending review.",
-    complaint_id=new_complaint.complaint_id  )
 
+    student_notification = NotificationModel(
+        user_id=user.users_id,
+        notifications_message="Your complaint has been received and is pending review.",
+        complaint_id=new_complaint.complaint_id
+    )
     db.session.add(student_notification)
+
     db.session.commit()
 
     return jsonify({"message": "Complaint submitted successfully."}), 201
-
 
 @app.route("/api/student/showsuggestions", methods=["GET"])
 def get_suggestions():
@@ -348,13 +391,6 @@ def get_student_suggestion():
     if not suggestion:
         return jsonify({"message": "Suggestion not found"}), 404
 
-    # تحويل الفايل إلى base64
-    file_data_base64 = None
-    file_type = None
-
-    if suggestion.suggestion_file:
-        file_data_base64 = base64.b64encode(suggestion.suggestion_file).decode('utf-8')
-        file_type = "image/png"  # تقدر تعملي نظام يحدد النوع الحقيقي لاحقًا
 
     return jsonify({
         "suggestion_id": str(suggestion.suggestion_id),
@@ -364,30 +400,37 @@ def get_student_suggestion():
         "suggestion_title": suggestion.suggestion_title,
         "suggestion_message": suggestion.suggestion_message,
         "suggestion_created_at": suggestion.suggestion_created_at.isoformat() if suggestion.suggestion_created_at else None,
-        "suggestion_file": file_data_base64,
-        "suggestion_file_type": file_type,
-        "suggestion_file_name": suggestion.suggestion_file_name,  # if you store it in the DB
-
+        "suggestion_file_url": suggestion.suggestion_file_url,
+        "suggestion_file_name": suggestion.suggestion_file_name
     }), 200
 
 
 @app.route('/api/student/addsuggestion', methods=['POST'])
 def create_suggestion():
-    # البيانات بتيجي من form-data
     email = request.form.get('student_email')
     user = UserModel.query.filter_by(users_email=email).first()
     if not user:
         return jsonify({"message": "User not found"}), 404
 
-    # قراءة الحقول النصية
     title = request.form.get('suggestion_title')
     message = request.form.get('suggestion_message')
     suggestion_type = request.form.get('suggestion_type')
     suggestion_dep = request.form.get('suggestion_dep')
 
-    # قراءة الملف
     file = request.files.get('file')
-    file_data = file.read() if file else None
+    file_url = None
+    file_name = None
+
+
+    if file and allowed_file(file.filename):
+        filename = secure_filename(file.filename)
+        file_path = app.config['SUGGESTION_UPLOAD_FOLDER']
+        os.makedirs(file_path, exist_ok=True)
+        full_path = os.path.join(file_path, filename)
+        file.save(full_path)
+
+        file_url = f"http://localhost:5000/static/uploads/suggestions/{filename}"
+        file_name = filename
 
     new_suggestion = SuggestionModel(
         suggestion_title=title,
@@ -395,12 +438,12 @@ def create_suggestion():
         suggestion_type=suggestion_type,
         suggestion_dep=suggestion_dep,
         users_id=user.users_id,
-        suggestion_file=file_data  # نحط الباينري داتا هنا
+        suggestion_file_url=file_url,
+        suggestion_file_name=file_name
     )
 
     db.session.add(new_suggestion)
     db.session.flush()
-
     # إشعار الإدمن
     admin = UserModel.query.filter_by(users_role='admin').first()
     if admin:
@@ -572,7 +615,8 @@ def get_complaint_by_id():
         "complaint_status": complaint.complaint_status.name if complaint.complaint_status else None,
         "complaint_created_at": complaint.complaint_created_at.isoformat() if complaint.complaint_created_at else None,
         "student_email": complaint.sender.users_email if complaint.sender else None,
-
+        "complaint_file_name": complaint.complaint_file_name,
+        "complaint_file_url": complaint.complaint_file_url,
         "response_message": complaint.response_message if complaint.response_message else None,
         "response_created_at": complaint.response_created_at.isoformat() if complaint.response_created_at else None,
         "responder_name": responder_name
@@ -636,7 +680,9 @@ def get_suggestion_by_id():
         'suggestion_date': suggestion.suggestion_created_at,
         'student_email': student.users_email if student and suggestion.suggestion_dep.name == "public" else "Unknown",
         'suggestion_status': str(suggestion.suggestion_status.value),
-        'suggestion_status': str(suggestion.suggestion_status.value),
+        'suggestion_file_name': suggestion.suggestion_file_name,
+        'suggestion_file_url': suggestion.suggestion_file_url
+
 
     })
 
@@ -804,6 +850,13 @@ def mark_student_notification_read():
     notification.notification_is_read = True
     db.session.commit()
     return jsonify({"status": "success"})
+@app.route('/static/uploads/complaints/<filename>')
+def uploaded_complaint_file(filename):
+    return send_from_directory(app.config['COMPLAINT_UPLOAD_FOLDER'], filename)
+
+@app.route('/static/uploads/suggestions/<filename>')
+def uploaded_suggestion_file(filename):
+    return send_from_directory(app.config['SUGGESTION_UPLOAD_FOLDER'], filename)
 
 
 if __name__ == '__main__':

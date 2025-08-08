@@ -124,7 +124,19 @@ export default function ComplaintDetailsPage() {
             {complaint.complaint_message}
           </div>
         </div>
-
+               {complaint.complaint_file_url && (
+        <div className="mt-4">
+          <span className="font-semibold block mb-1">Attachment:</span>
+          <a
+            href={complaint.complaint_file_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-blue-600 underline hover:text-blue-800"
+          >
+            View Attachment
+          </a>
+        </div>
+      )}
         <div className="mt-6">
           <label htmlFor="status" className="block font-semibold mb-1">Change Status:</label>
           <select

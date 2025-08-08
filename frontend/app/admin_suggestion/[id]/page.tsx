@@ -80,6 +80,21 @@ export default function suggestionDetailsPage() {
           <div className="whitespace-pre-wrap bg-white border border-gray-200 rounded-lg p-4 max-h-[500px] overflow-auto">
             {suggestion.suggestion_message}
           </div>
+
+               {suggestion.suggestion_file_url && (
+        <div className="mt-4">
+          <span className="font-semibold block mb-1">Attachment:</span>
+          <a
+            href={suggestion.suggestion_file_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-blue-600 underline hover:text-blue-800"
+          >
+            View Attachment
+          </a>
+        </div>
+      )}
+
           <div className="mt-6">
   <label htmlFor="status" className="block font-semibold mb-1">Change Status:</label>
   <select

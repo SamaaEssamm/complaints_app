@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 
 export default function NewComplaintPage() {
   const router = useRouter();
-
+  const [file, setFile] = useState<File | null>(null);
   const [formData, setFormData] = useState({
     title: '',
     message: '',
@@ -20,38 +20,36 @@ export default function NewComplaintPage() {
 
  
 
- 
 const handleSubmit = async (e: React.FormEvent) => {
   e.preventDefault();
 
   const student_email = localStorage.getItem('student_email');
-    if (!student_email) {
+  if (!student_email) {
     alert("User email not found. Please log in again.");
     return;
   }
-  try {
-  const res = await fetch('http://127.0.0.1:5000/api/student/addcomplaint', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      student_email,
-      complaint_title: formData.title,
-      complaint_message: formData.message,
-      complaint_type: formData.type,
-      complaint_dep: formData.dep,
-    }),
-  });
 
-  if (res.ok) {
-    router.push('/student_complaint');
-  } else {
-    const errorText = await res.text();
-    alert('Error: ' + errorText);
-  }
-}
-   catch (error) {
+  const form = new FormData();
+  form.append("student_email", student_email);
+  form.append("complaint_title", formData.title);
+  form.append("complaint_message", formData.message);
+  form.append("complaint_type", formData.type);
+  form.append("complaint_dep", formData.dep);
+  if (file) form.append("file", file); // 👈 ضيفي الملف لو موجود
+
+  try {
+    const res = await fetch('http://127.0.0.1:5000/api/student/addcomplaint', {
+      method: 'POST',
+      body: form, // لا تستخدمي Content-Type مع FormData
+    });
+
+    if (res.ok) {
+      router.push('/student_complaint');
+    } else {
+      const errorText = await res.text();
+      alert('Error: ' + errorText);
+    }
+  } catch (error) {
     console.error("Error submitting complaint:", error);
     alert("Something went wrong. Please try again later.");
   }
@@ -87,6 +85,16 @@ const handleSubmit = async (e: React.FormEvent) => {
             className="w-full border border-gray-300 rounded-xl px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#003087]"
           />
         </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">Attachment (optional)</label>
+        <input
+          type="file"
+          name="file"
+          accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+          onChange={(e) => setFile(e.target.files?.[0] || null)}
+          className="w-full border border-gray-300 rounded-xl px-4 py-2 focus:outline-none"
+        />
+      </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>

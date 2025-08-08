@@ -1,12 +1,13 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
+
 
 export default function SuggestionDetailsPage() {
   const params = useParams();
   const id = Array.isArray(params.id) ? params.id[0] : params.id;
-
+  const router = useRouter();
   const [suggestion, setSuggestion] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
@@ -36,6 +37,7 @@ export default function SuggestionDetailsPage() {
 
   return (
     <div className="min-h-screen bg-white py-10 px-6 md:px-12 lg:px-24">
+
       <h1 className="text-3xl font-bold text-[#003087] mb-6">Suggestion Details</h1>
 
       <div className="bg-gray-50 border rounded-xl p-6 shadow space-y-3">
@@ -60,48 +62,25 @@ export default function SuggestionDetailsPage() {
           </div>
         </div>
 
-        {suggestion.suggestion_file && (
-          <div className="mt-6">
-            <span className="font-semibold block mb-1">Attached File:</span>
+               {suggestion.suggestion_file_url && (
+        <div className="mt-4">
+          <span className="font-semibold block mb-1">Attachment:</span>
+          <a
+            href={suggestion.suggestion_file_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-blue-600 underline hover:text-blue-800"
+          >
+            View Attachment
+          </a>
+        </div>
+      )}
 
-            {suggestion.suggestion_file_type?.startsWith('image/') ? (
-              <div>
-                <img
-                  src={`data:${suggestion.suggestion_file_type};base64,${suggestion.suggestion_file}`}
-                  alt={suggestion.suggestion_file_name || "Attached image"}
-                  className="max-w-full max-h-[400px] rounded border"
-                />
-                {suggestion.suggestion_file_name && (
-                  <input
-                    type="text"
-                    value={suggestion.suggestion_file_name}
-                    readOnly
-                    className="mt-2 border px-3 py-1 rounded bg-gray-100 w-full"
-                  />
-                )}
-              </div>
-            ) : (
-              <div>
-                <a
-                  href={`data:${suggestion.suggestion_file_type};base64,${suggestion.suggestion_file}`}
-                  download={suggestion.suggestion_file_name || "attachment"}
-                  className="text-blue-600 underline"
-                >
-                  {suggestion.suggestion_file_name || "Download file"}
-                </a>
-                {suggestion.suggestion_file_name && (
-                  <input
-                    type="text"
-                    value={suggestion.suggestion_file_name}
-                    readOnly
-                    className="mt-2 border px-3 py-1 rounded bg-gray-100 w-full"
-                  />
-                )}
-              </div>
-            )}
-          </div>
-        )}
+
+            
+            
       </div>
+      
     </div>
   );
 }
