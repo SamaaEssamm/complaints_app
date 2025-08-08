@@ -9,6 +9,9 @@ from flask_restful import Resource, Api, reqparse, fields, marshal_with, abort
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_cors import CORS
 from datetime import datetime, timezone
+from chatbot_api import ask_question_with_rerank
+from sqlalchemy.orm import joinedload
+
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://ghada:ghada@localhost:5432/complaint_app'
@@ -349,7 +352,6 @@ def get_all_complaints():
             student = UserModel.query.filter_by(users_id=c.sender_id).first()
             if student:
                 student_email = student.users_email
-                print(str(c.complaint_type.name))
 
         results.append({
             'complaint_id': c.complaint_id,
@@ -383,7 +385,6 @@ def get_complaint_by_id():
         admin = UserModel.query.get(complaint.responder_id)
         if admin:
             responder_name = admin.users_name
-    print(complaint.response_created_at )
     # Construct response
     return jsonify({
         "status": "success",
@@ -462,6 +463,207 @@ def get_admin_id():
         })
     else:
         return jsonify({'status': 'fail', 'reason': 'Admin not found'})
+
+
+#done
+@app.route("/api/chat/ask", methods=["POST"])
+def ask():
+    data = request.get_json()
+    question = data.get("question")
+    session_id = data.get("session_id")
+    user_email = data.get("user_email")
+
+    if not question or not user_email:
+        return jsonify({"error": "Missing question or user_email"}), 400
+
+    user = db.session.query(UserModel).filter_by(users_email=user_email).first()
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+
+    user_id = user.users_id
+
+    # If session_id not provided, get the latest session
+    if not session_id:
+        latest_session = (
+            db.session.query(ChatSessionModel)
+            .filter_by(user_id=user_id)
+            .order_by(ChatSessionModel.created_at.desc())
+            .first()
+        )
+        if latest_session:
+            session_id = latest_session.session_id
+        else:
+            return jsonify({"error": "No active chat session found"}), 404
+
+    # Call your rerank-based Groq response generator
+    answer = ask_question_with_rerank(question)
+
+    # Save the question and answer in DB
+    question_msg = ChatMessageModel(
+        session_id=session_id,
+        sender='user',
+        message=question
+    )
+    answer_msg = ChatMessageModel(
+        session_id=session_id,
+        sender='bot',
+        message=answer
+    )
+
+    db.session.add_all([question_msg, answer_msg])
+    db.session.commit()
+
+    # Get the chat session by ID
+    session = db.session.query(ChatSessionModel).filter_by(sessions_id=session_id).first()
+
+# Count only user/bot messages (ignore "New Chat Started" system message)
+    real_messages_count = (
+    db.session.query(ChatMessageModel)
+    .filter(
+        ChatMessageModel.session_id == session.sessions_id,
+        ChatMessageModel.sender.in_(["user", "bot"])
+    )
+    .count()
+    )
+# Set title only after the first actual user+bot exchange
+    if session and real_messages_count == 3:
+        session.session_title = question[:30] + "..." if len(question) > 30 else question
+    db.session.commit()
+
+
+
+
+    return jsonify({"answer": answer})
+
+
+#done
+@app.route("/api/chat/start_session", methods=["POST"])
+def start_session():
+    data = request.get_json()
+    email = data.get("email")
+    first_message = data.get("message", "")
+
+    user = UserModel.query.filter_by(users_email=email).first()
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+
+    # Close previous sessions
+    ChatSessionModel.query.filter_by(users_id=user.users_id, session_status=SessionStatus.open).update(
+        {ChatSessionModel.session_status: SessionStatus.close}
+    )
+
+    # Create new session
+    # Create new chat session (no need to assign sessions_id manually)
+    new_session = ChatSessionModel(
+    users_id=user.users_id,
+    session_title=first_message or "New Chat",
+    session_status=SessionStatus.open
+    )
+    db.session.add(new_session)
+    db.session.flush()  # Generates sessions_id and keeps it accessible
+
+# Now add the first message, using the generated session_id
+    if first_message:
+        new_msg = ChatMessageModel(
+        session_id=new_session.sessions_id,
+        sender=SenderType.user,
+        message=first_message
+    )
+    db.session.add(new_msg)
+
+# Commit everything
+    db.session.commit()
+
+
+    return jsonify({
+        "session_id": str(new_session.sessions_id),
+        "title": new_session.session_title,
+        "created_at": new_session.session_created_at
+    })
+
+#done
+@app.route("/api/chat/messages", methods=["GET"])
+def get_messages():
+    session_id = request.args.get("session_id")
+    messages = ChatMessageModel.query.filter_by(session_id=session_id).order_by(ChatMessageModel.created_at).all()
+
+    return jsonify([
+        {
+            "sender": m.sender.value,
+            "text": m.message,
+            "created_at": m.created_at.isoformat()
+        }
+        for m in messages
+    ])
+
+#done
+@app.route("/api/chat/send_message", methods=["POST"])
+def send_message():
+    data = request.get_json()
+    session_id = data.get("session_id")
+    user_message = data.get("message")
+
+    if not session_id or not user_message:
+        return jsonify({"error": "Missing session_id or message"}), 400
+
+    # Add user message
+    user_msg = ChatMessageModel(
+        session_id=session_id,
+        sender=SenderType.user,
+        message=user_message
+    )
+    db.session.add(user_msg)
+
+    # 🧠 Placeholder bot logic — you can replace with your Groq/Mixtral call
+    bot_reply = f"Bot received: {user_message}"
+
+    bot_msg = ChatMessageModel(
+        session_id=session_id,
+        sender=SenderType.bot,
+        message=bot_reply
+    )
+    db.session.add(bot_msg)
+
+    db.session.commit()
+
+    return jsonify({
+        "bot_reply": bot_reply
+    })
+
+
+#done
+@app.route("/api/chat/close_session", methods=["PATCH"])
+def close_session():
+    data = request.get_json()
+    session_id = data.get("session_id")
+
+    session = ChatSessionModel.query.get(session_id)
+    if not session:
+        return jsonify({"error": "Session not found"}), 404
+
+    session.session_status = SessionStatus.close
+    db.session.commit()
+    return jsonify({"status": "closed"})
+
+#done
+@app.route("/api/chat/sessions", methods=["GET"])
+def get_chat_sessions():
+    email = request.args.get("email")
+    print(email, " Hi");
+    user = UserModel.query.filter_by(users_email=email).first()
+    if not user:
+        return jsonify([])  # Return empty list if user doesn't exist
+
+    sessions = ChatSessionModel.query.filter_by(users_id=user.users_id).order_by(ChatSessionModel.session_created_at.desc()).all()
+
+    return jsonify([
+        {
+            "session_id": str(s.sessions_id),
+            "title": s.session_title,
+            "created_at": s.session_created_at.isoformat()
+        }
+        for s in sessions
+    ])
 
 
 if __name__ == '__main__':
