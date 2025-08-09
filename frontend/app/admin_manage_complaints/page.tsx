@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 
 type Complaint = {
   complaint_id: number;
+  reference_code: number;
   complaint_title: string;
   complaint_message: string;
   complaint_type: string;
@@ -154,6 +155,7 @@ const typeLabels: { [key: string]: string } = {
           <table className="min-w-full bg-white text-sm">
             <thead className="bg-gray-100 text-left">
               <tr>
+                <th className="px-4 py-3 font-medium text-gray-700">Complaint code </th>
                 <th className="px-4 py-3 font-medium text-gray-700">Title</th>
                 <th className="px-4 py-3 font-medium text-gray-700">Type</th>
                 <th className="px-4 py-3 font-medium text-gray-700">Date</th>
@@ -169,6 +171,7 @@ const typeLabels: { [key: string]: string } = {
                   onClick={() => router.push(`/admin_complaint/${c.complaint_id}
 `)}
                 >
+                  <td className="px-4 py-2">{c.reference_code}</td> 
                   <td className="px-4 py-2">{c.complaint_title}</td>
                   <td className="px-4 py-2">{typeLabels[c.complaint_type] || c.complaint_type}</td>
                   <td className="px-4 py-2">{new Date(c.complaint_date).toLocaleDateString()}</td>

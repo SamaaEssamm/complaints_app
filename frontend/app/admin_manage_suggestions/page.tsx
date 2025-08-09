@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 
 type suggestion = {
   suggestion_id: number;
+  reference_code: number;
   suggestion_title: string;
   suggestion_message: string;
   suggestion_type: string;
@@ -141,6 +142,7 @@ const typeLabels: { [key: string]: string } = {
           <table className="min-w-full bg-white text-sm">
             <thead className="bg-gray-100 text-left">
               <tr>
+                 <th className="px-4 py-3 font-medium text-gray-700">Suggestion code </th>
                 <th className="px-4 py-3 font-medium text-gray-700">Title</th>
                 <th className="px-4 py-3 font-medium text-gray-700">Type</th>
                 <th className="px-4 py-3 font-medium text-gray-700">Date</th>
@@ -155,6 +157,7 @@ const typeLabels: { [key: string]: string } = {
                   className="border-t border-gray-200 hover:bg-gray-100 cursor-pointer transition"
                   onClick={() => router.push(`/admin_suggestion/${c.suggestion_id}`)}
                 >
+                   <td className="px-4 py-2">{c.reference_code}</td> 
                   <td className="px-4 py-2">{c.suggestion_title}</td>
                   <td className="px-4 py-2">{typeLabels[c.suggestion_type] || c.suggestion_type}</td>
                   <td className="px-4 py-2">{new Date(c.suggestion_date).toLocaleDateString()}</td>

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 
 type Complaint = {
   complaint_id: number;
+  reference_code: number;
   complaint_title: string;
   complaint_message: string;
   complaint_type: string;
@@ -97,42 +98,41 @@ export default function ComplaintsPage() {
         <div className="overflow-x-auto rounded-xl shadow border border-gray-200">
           <table className="min-w-full bg-white text-sm">
             <thead className="bg-gray-100 text-left">
-              <tr>
-                <th className="px-4 py-3 font-medium text-gray-700">Title</th>
-                <th className="px-4 py-3 font-medium text-gray-700">Type</th>
-                <th className="px-4 py-3 font-medium text-gray-700">Department</th>
-                <th className="px-4 py-3 font-medium text-gray-700">Date</th>
-                <th className="px-4 py-3 font-medium text-gray-700">Status</th>
-              </tr>
-            </thead>
+  <tr>
+    <th className="px-4 py-3 font-medium text-gray-700">complaint Code</th>
+    <th className="px-4 py-3 font-medium text-gray-700">Title</th>
+    <th className="px-4 py-3 font-medium text-gray-700">Type</th>
+    <th className="px-4 py-3 font-medium text-gray-700">Department</th>
+    <th className="px-4 py-3 font-medium text-gray-700">Date</th>
+    <th className="px-4 py-3 font-medium text-gray-700">Status</th>
+  </tr>
+</thead>
+
             <tbody>
-              {complaints.map((c) => {
-                console.log("Complaint Status:", c.complaint_status, typeof c.complaint_status);
+  {complaints.map((c) => (
+    <tr
+      key={c.complaint_id}
+      onClick={() => router.push(`/student_complaint/${c.complaint_id}`)}
+      className="cursor-pointer hover:bg-gray-100 transition"
+    >
+      <td className="px-4 py-2">{c.reference_code}</td>
+      <td className="px-4 py-2">{c.complaint_title}</td>
+      <td className="px-4 py-2 capitalize">{c.complaint_type}</td>
+      <td className="px-4 py-2 capitalize">{c.complaint_dep}</td>
+      <td className="px-4 py-2">{formatDate(c.complaint_created_at)}</td>
+      <td className="px-4 py-2 capitalize">
+        {statusMap[c.complaint_status] ? (
+          <span className={`${statusMap[c.complaint_status].color} font-medium`}>
+            {statusMap[c.complaint_status].label}
+          </span>
+        ) : (
+          <span className="text-red-600 font-medium">Unknown</span>
+        )}
+      </td>
+    </tr>
+  ))}
+</tbody>
 
-
-                return (
-                  <tr
-                    key={c.complaint_id}
-                    onClick={() => router.push(`/student_complaint/${c.complaint_id}`)}
-                    className="cursor-pointer hover:bg-gray-100 transition"
-                  >
-                    <td className="px-4 py-2">{c.complaint_title}</td>
-                    <td className="px-4 py-2 capitalize">{c.complaint_type}</td>
-                    <td className="px-4 py-2 capitalize">{c.complaint_dep}</td>
-                    <td className="px-4 py-2">{formatDate(c.complaint_created_at)}</td>
-                    <td className="px-4 py-2 capitalize">
-                      {statusMap[c.complaint_status] ? (
-                        <span className={`${statusMap[c.complaint_status].color} font-medium`}>
-                          {statusMap[c.complaint_status].label}
-                        </span>
-                      ) : (
-                        <span className="text-red-600 font-medium">Unknown</span>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
           </table>
         </div>
       )}

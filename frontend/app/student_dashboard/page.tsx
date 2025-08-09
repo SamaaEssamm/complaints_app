@@ -1,5 +1,6 @@
 'use client';
-import { useEffect, useState, useRef } from 'react';
+import { useRef } from "react";
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 export default function Dashboard() {
   const [studentName, setStudentName] = useState('Student');
@@ -8,6 +9,7 @@ export default function Dashboard() {
   const redirected = useRef(false); // 👈 prevent repeated redirects
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [chatOpen, setChatOpen] = useState(false);
   const handleNotificationClick = (notification: Notification) => {
   if (!notification.is_read) {
     // اعمل له تحديث في قاعدة البيانات إنه مقروء
@@ -199,7 +201,7 @@ useEffect(() => {
   </ul>
 </nav>
 
-      {/* Welcome Section */}
+     {/* Welcome Section */}
       <section
   className="flex-grow flex flex-col items-center justify-center text-center px-6"
   style={{ backgroundImage: "url('/home1-ar-lzneos.jpg')", backgroundSize: 'cover', backgroundPosition: 'center' }}
@@ -212,6 +214,30 @@ useEffect(() => {
   </p>
 </section>
 
+      {/* Floating Chatbot Button */}
+      <button
+        onClick={() => router.push('/student_chat')}
+        className="fixed bottom-6 right-6 bg-gradient-to-r from-blue-500 to-indigo-600 text-white p-4 rounded-full shadow-lg hover:scale-105 transition-all z-50"
+        title="Chat with Assistant"
+      >
+        💬
+      </button>
+
+      {/* Optional: Chat popup placeholder */}
+      {chatOpen && (
+        <div className="fixed bottom-20 right-6 bg-white w-96 h-96 p-4 rounded-xl shadow-xl border border-blue-200 z-50 flex flex-col">
+          <div className="flex justify-between items-center mb-2">
+            <h2 className="font-bold text-blue-800">AI Assistant 🤖</h2>
+            <button onClick={() => setChatOpen(false)} className="text-red-500 hover:text-red-700">✖</button>
+          </div>
+          <div className="flex-grow overflow-y-auto border-t pt-2 text-sm text-gray-700">
+            {/* Your chat content goes here, or integrate Chat component */}
+            <p className="text-center text-gray-500 mt-10">Chatbot UI coming soon...</p>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
+

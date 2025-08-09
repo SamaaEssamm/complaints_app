@@ -47,6 +47,13 @@ def upgrade():
             nullable=False
         )
 
+       # إنشاء sequences
+    op.execute("CREATE SEQUENCE complaint_code_seq START 11000")
+    op.execute("CREATE SEQUENCE suggestion_code_seq START 22000")
+
+    # إضافة الأعمدة
+    op.add_column('complaints', sa.Column('reference_code', sa.BigInteger(), server_default=sa.text("nextval('complaint_code_seq')")))
+    op.add_column('suggestions', sa.Column('reference_code', sa.BigInteger(), server_default=sa.text("nextval('suggestion_code_seq')")))
 
 
     # ### end Alembic commands ###
@@ -72,4 +79,8 @@ def downgrade():
         batch_op.create_foreign_key(batch_op.f('notifications_suggestion_id_fkey'), 'suggestions', ['suggestion_id'], ['suggestion_id'], ondelete='CASCADE')
         batch_op.create_foreign_key(batch_op.f('notifications_complaint_id_fkey'), 'complaints', ['complaint_id'], ['complaint_id'], ondelete='CASCADE')
 
+    op.drop_column('complaints', 'reference_code')
+    op.drop_column('suggestions', 'reference_code')
+    op.execute("DROP SEQUENCE complaint_code_seq")
+    op.execute("DROP SEQUENCE suggestion_code_seq")
     # ### end Alembic commands ###

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 
 type Suggestion = {
     suggestion_id: string;
+    reference_code: number;
     suggestion_title: string;
     suggestion_message: string;
     suggestion_type: string;
@@ -69,32 +70,33 @@ export default function SuggestionsPage() {
             ) : (
                 <div className="overflow-x-auto rounded-xl shadow border border-gray-200">
                     <table className="min-w-full bg-white text-sm">
-                        <thead className="bg-gray-100 text-left">
-                            <tr>
-                                <th className="px-4 py-3 font-medium text-gray-700">Title</th>
-                                <th className="px-4 py-3 font-medium text-gray-700">Type</th>
-                                <th className="px-4 py-3 font-medium text-gray-700">Department</th>
-                                <th className="px-4 py-3 font-medium text-gray-700">Date</th>
+                   <thead className="bg-gray-100 text-left">
+                    <tr>
+                        <th className="px-4 py-3 font-medium text-gray-700">suggestion code </th> {/* العمود الجديد */}
+                        <th className="px-4 py-3 font-medium text-gray-700">Title</th>
+                        <th className="px-4 py-3 font-medium text-gray-700">Type</th>
+                        <th className="px-4 py-3 font-medium text-gray-700">Department</th>
+                        <th className="px-4 py-3 font-medium text-gray-700">Date</th>
+                    </tr>
+                </thead>
+<tbody>
+    {suggestions.map((s) => (
+        <tr
+            key={s.suggestion_id}
+            className="cursor-pointer hover:bg-gray-100 transition border-t border-gray-200"
+            onClick={() => router.push(`/student_suggestions/${s.suggestion_id}`)}
+        >
+            <td className="px-4 py-2">{s.reference_code}</td> {/* عرض الكود */}
+            <td className="px-4 py-2">{s.suggestion_title}</td>
+            <td className="px-4 py-2 capitalize">{s.suggestion_type}</td>
+            <td className="px-4 py-2 capitalize">{s.suggestion_dep}</td>
+            <td className="px-4 py-2">
+                {new Date(s.suggestion_created_at).toLocaleDateString()}
+            </td>
+        </tr>
+    ))}
+</tbody>
 
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {suggestions.map((s) => (
-                                <tr
-                                    key={s.suggestion_id}
-                                    className="cursor-pointer hover:bg-gray-100 transition border-t border-gray-200"
-                                    onClick={() => router.push(`/student_suggestions/${s.suggestion_id}`)} // ✅ هنا
-                                >
-                                    <td className="px-4 py-2">{s.suggestion_title}</td>
-                                    <td className="px-4 py-2 capitalize">{s.suggestion_type}</td>
-                                    <td className="px-4 py-2 capitalize">{s.suggestion_dep}</td>
-                                    <td className="px-4 py-2">
-                                    {new Date(s.suggestion_created_at).toLocaleDateString()}
-                                    </td>
-                                </tr>
-                                ))}
-
-                        </tbody>
                     </table>
                 </div>
             )}

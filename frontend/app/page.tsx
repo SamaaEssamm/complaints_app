@@ -4,7 +4,7 @@ export default function page() {
   return (
     <div
       className="min-h-screen bg-center bg-no-repeat bg-fixed"
-      style={{ backgroundImage: 'url("/pageBackGround.jpeg")', backgroundSize: 'contain' }}
+      style={{ backgroundImage: 'url("/1719835311862.jpeg")', backgroundSize: 'cover' }}
     >
       {/* Header Logos */}
       <header className="flex justify-between items-center px-10 py-6">
